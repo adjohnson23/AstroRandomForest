@@ -1,12 +1,16 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
 # PARAMETERS
 # training_df: Training set data for the RF
 # testing_df: Testing set data for the RF
-def train_rf(training_df, testing_df, feature_list):
+def train_rf(training_df, testing_df, feature_list, num_trees=100, seed=42):
     if training_df is None:
         print("The training set doesn't exist!")
         return
@@ -14,11 +18,38 @@ def train_rf(training_df, testing_df, feature_list):
     # Constrain RF training to given feature list
     rf_train = training_df[feature_list]
     rf_test = testing_df[feature_list]
-    print(rf_train.head(5))
+
+    # Drop any rows with NA in the 'Class' column
+    rf_train = rf_train.dropna(subset=['Class'])
+    rf_test = rf_test.dropna(subset=['Class'])
+
+    # Replace instances of infinity with NaN
+    rf_train = rf_train.replace(Inf, None)
+    rf_test = rf_test.replace(Inf, None)
+
+    # Split the X and Y 
+    x_train = rf_train.drop(columns=['Class'])
+    y_train = rf_train['Class']
+    x_test = rf_test.drop(columns=['Class'])
+    y_test = rf_test['Class']
+    print(x_train.head(5))
+    print(y_train.head(5))
 
     # Set up a random forest classifier
-    
+    # n_estimators: How many trees are grown?
+    # random_state: Seed for tree growth
+    rf_classifer = RandomForestClassifier(n_estimators=num_trees, random_state=seed, )
+    print(f"Generated a random forest with {num_trees} trees and seed {seed}")
 
+    # Train the classifier
+    rf_classifer.fit(x_train, y_train)
+
+    # Make predictions
+    y_pred = rf_classifer.predict(x_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"This random forest had an accuracy of {accuracy}")
+
+    # Feature Importance (TODO: get feature names from df)
 
 training_path = "Random_Forest/RFtraining.csv"
 testing_path = "Random_Forest/RFtesting.csv"
