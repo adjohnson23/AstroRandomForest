@@ -1,3 +1,5 @@
+import os
+import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,7 +12,12 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 # PARAMETERS
 # training_df: Training set data for the RF
 # testing_df: Testing set data for the RF
-def train_rf(training_df, testing_df, feature_list, num_trees=100, seed=42):
+# feature_list: A list of feature names for the random forest
+# rf_save_path: The file path to save the random forest into.
+# num_trees: Number of trees to grow. The default is 100.
+# seed: What seed to generate a random forest from. The default is 42.
+def train_rf(training_df, testing_df, feature_list, rf_save_path,
+             num_trees=100, seed=42):
     if training_df is None:
         print("The training set doesn't exist!")
         return
@@ -45,22 +52,30 @@ def train_rf(training_df, testing_df, feature_list, num_trees=100, seed=42):
     # Set up a random forest classifier
     # n_estimators: How many trees are grown?
     # random_state: Seed for tree growth
-    rf_classifer = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1)
+    rf_classifier = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1)
     print(f"Generated a random forest with {num_trees} trees and seed {seed}")
 
     # Train the classifier
-    rf_classifer.fit(x_train, y_train)
+    rf_classifier.fit(x_train, y_train)
 
     # Make predictions
-    y_pred = rf_classifer.predict(x_test)
+    y_pred = rf_classifier.predict(x_test)
     accuracy = accuracy_score(y_test, y_pred)
     print(f"This random forest had an accuracy of {accuracy}")
 
     # TODO
     # Save the random forest
-    
+    # The random forest is compressed to save disk space
+    with open(rf_save_path, 'wb') as f:
+        joblib.dump(rf_classifier, f, compress=3)
+
+    # Extract feature names?
+
 
     # Get TPR, FPR, TNR, FNR
+    # Get the predicted class probabilities
+    # Returns an array of shape (n_samples, n_classes)
+    # y_pred_prob = rf_classifier.predict_proba(x_test)[:, 1]
 
     # Confusion matrix?
 
@@ -95,4 +110,4 @@ feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit',
                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 print(f"Creating random forest of feature list {feature_list}")
-train_rf(training_df, testing_df, feature_list, 100)
+train_rf(training_df, testing_df, feature_list, "Random_Forest/first_fs_rf_python.joblib", num_trees=10000)
