@@ -19,13 +19,13 @@ def train_rf(training_df, testing_df, feature_list, num_trees=100, seed=42):
     rf_train = training_df[feature_list]
     rf_test = testing_df[feature_list]
 
-    # Drop any rows with NA in the 'Class' column
-    rf_train = rf_train.dropna(subset=['Class'])
-    rf_test = rf_test.dropna(subset=['Class'])
-
     # Replace instances of infinity with NaN
-    rf_train = rf_train.replace(Inf, None)
-    rf_test = rf_test.replace(Inf, None)
+    rf_train = rf_train.mask(np.isinf(rf_train), np.nan)
+    rf_test = rf_test.mask(np.isinf(rf_train), np.nan)
+
+    # Drop any rows with NaN in them
+    rf_train = rf_train.dropna()
+    rf_test = rf_test.dropna()
 
     # Split the X and Y 
     x_train = rf_train.drop(columns=['Class'])
@@ -34,11 +34,18 @@ def train_rf(training_df, testing_df, feature_list, num_trees=100, seed=42):
     y_test = rf_test['Class']
     print(x_train.head(5))
     print(y_train.head(5))
+    # print(f"Training dataset max values:")
+    # for col in rf_train.columns:
+    #     print(f"{col}: {rf_train[col].max()}")
+    
+    # print(f"Test dataset max values:")
+    # for col in rf_train.columns:
+    #     print(f"{col}: {rf_train[col].max()}")
 
     # Set up a random forest classifier
     # n_estimators: How many trees are grown?
     # random_state: Seed for tree growth
-    rf_classifer = RandomForestClassifier(n_estimators=num_trees, random_state=seed, )
+    rf_classifer = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1)
     print(f"Generated a random forest with {num_trees} trees and seed {seed}")
 
     # Train the classifier
@@ -49,7 +56,15 @@ def train_rf(training_df, testing_df, feature_list, num_trees=100, seed=42):
     accuracy = accuracy_score(y_test, y_pred)
     print(f"This random forest had an accuracy of {accuracy}")
 
-    # Feature Importance (TODO: get feature names from df)
+    # TODO
+    # Save the random forest
+    
+
+    # Get TPR, FPR, TNR, FNR
+
+    # Confusion matrix?
+
+    # Feature Importance
 
 training_path = "Random_Forest/RFtraining.csv"
 testing_path = "Random_Forest/RFtesting.csv"
@@ -80,4 +95,4 @@ feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit',
                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 print(f"Creating random forest of feature list {feature_list}")
-train_rf(training_df, testing_df, feature_list)
+train_rf(training_df, testing_df, feature_list, 100)
