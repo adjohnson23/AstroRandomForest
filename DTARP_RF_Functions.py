@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
 # PARAMETERS
@@ -39,8 +38,8 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     y_train = rf_train['Class']
     x_test = rf_test.drop(columns=['Class'])
     y_test = rf_test['Class']
-    print(x_train.head(5))
-    print(y_train.head(5))
+    # print(x_train.head(5))
+    # print(y_train.head(5))
     # print(f"Training dataset max values:")
     # for col in rf_train.columns:
     #     print(f"{col}: {rf_train[col].max()}")
@@ -52,34 +51,51 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     # Set up a random forest classifier
     # n_estimators: How many trees are grown?
     # random_state: Seed for tree growth
-    rf_classifier = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1)
-    print(f"Generated a random forest with {num_trees} trees and seed {seed}")
+    # The random forest will only be set up if the save path doesn't exist already (don't accidentally overwrite existing rfs)
+    if not os.path.exists(rf_save_path):
+        rf_classifier = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1, bootstrap=True, oob_score=True)
+        print(f"Generated a random forest with {num_trees} trees and seed {seed}")
 
-    # Train the classifier
-    rf_classifier.fit(x_train, y_train)
+        # Train the classifier
+        rf_classifier.fit(x_train, y_train)
 
-    # Make predictions
-    y_pred = rf_classifier.predict(x_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"This random forest had an accuracy of {accuracy}")
+        # Make predictions
+        y_pred = rf_classifier.predict(x_test)
 
-    # TODO
-    # Save the random forest
-    # The random forest is compressed to save disk space
-    with open(rf_save_path, 'wb') as f:
-        joblib.dump(rf_classifier, f, compress=3)
+        # Create the directory to store rf results
+        os.mkdir(rf_save_path)
 
-    # Extract feature names?
+        # TODO
+        # Save the random forest
+        # The random forest is compressed to save disk space
+        rf_trees_path = os.path.join(rf_save_path, "random_forest.joblib")
+        with open(rf_trees_path, 'wb') as f:
+            joblib.dump(rf_classifier, f, compress=3)
+        
+        # Save metrics used in a txt file
+        rf_data_file = os.path.join(rf_save_path, "analysis_data.txt")
+        with open(rf_data_file, 'w') as f:
+            f.write("\nRANDOM FOREST ANALYSIS SHEET\n")
+            f.write("List of features used\n---------------------------------\n")
+            for feature in feature_list:
+                f.write(f"{feature}\n")
 
+            f.write("\nRANDOM FOREST PARAMETERS\n---------------------------------\n")
+            f.write(f"Number of trees grown: {num_trees}\n")
+            f.write(f"Seed used: {seed}\n")
+    else:
+        print(f"A random forest already exists in the save path {rf_save_path}")
 
-    # Get TPR, FPR, TNR, FNR
-    # Get the predicted class probabilities
-    # Returns an array of shape (n_samples, n_classes)
-    # y_pred_prob = rf_classifier.predict_proba(x_test)[:, 1]
-
-    # Confusion matrix?
-
-    # Feature Importance
+def rf_analysis(rf_save_path: str):
+    if not os.path.exists(rf_save_path):
+        print(f"There is no directory to {rf_save_path}!")
+        return
+    rf_tree_path = os.path.join(rf_save_path, "random_forest.joblib")
+    if not os.path.exists(rf_tree_path):
+        print(f"There is no random forest in the path {rf_tree_path}!")
+        return
+    rf = joblib.load(os.path.join(rf_save_path, "random_forest.joblib"))
+    
 
 training_path = "Random_Forest/RFtraining.csv"
 testing_path = "Random_Forest/RFtesting.csv"
@@ -110,4 +126,4 @@ feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit',
                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 print(f"Creating random forest of feature list {feature_list}")
-train_rf(training_df, testing_df, feature_list, "Random_Forest/first_fs_rf_python.joblib", num_trees=10000)
+train_rf(training_df, testing_df, feature_list, "Random_Forest/first_fs_rf_python/", num_trees=100)
