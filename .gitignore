@@ -1,2 +1,4 @@
 data/
 Random_Forest/
+.venv
+__pycache__
