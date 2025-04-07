@@ -39,15 +39,6 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     y_train = rf_train['Class']
     x_test = rf_test.drop(columns=['Class'])
     y_test = rf_test['Class']
-    print(x_train.head(5))
-    print(y_train.head(5))
-    # print(f"Training dataset max values:")
-    # for col in rf_train.columns:
-    #     print(f"{col}: {rf_train[col].max()}")
-    
-    # print(f"Test dataset max values:")
-    # for col in rf_train.columns:
-    #     print(f"{col}: {rf_train[col].max()}")
 
     # Set up a random forest classifier
     # n_estimators: How many trees are grown?
@@ -74,7 +65,7 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
         rf_test.to_csv(os.path.join(rf_save_path, "testing_set.csv"), index=False)
         
         # Save metrics used in a txt file
-        rf_data_file = os.path.join(rf_save_path, "analysis_data.txt")
+        rf_data_file = os.path.join(rf_save_path, "rf_parameters_data.txt")
         with open(rf_data_file, 'w') as f:
             f.write("\nRANDOM FOREST ANALYSIS SHEET\n")
             f.write("List of features used\n---------------------------------\n")
@@ -126,7 +117,35 @@ def rf_analysis(rf_save_path: str):
                 'Threshold': thresholds
             })
             roc_df.to_csv(os.path.join(rf_save_path, 'roc_thresholds.csv'), index=False)
-            f.write(f"\nROC_AUC score: {roc_auc}\n")
+            f.write(f"ROC_AUC score: {roc_auc}\n")
+
+            # Write notable threshold values into the txt file
+            # 1. First threshold where TPR > TPR of DTARPS1
+            # 2. Last threshold where FPR < FPR of DTARPS1
+            # 3+. Any thresholds where both 1 and 2 are met
+            dtarpsTPR = 0.9283
+            dtarpsFPR = 0.0037
+            dtarpsThreshold = 0.174
+            f.write(f"\nNOTABLE THRESHOLDS\nComparing DTARPS performance: TPR {dtarpsTPR}, FPR {dtarpsFPR}, Threshold {dtarpsThreshold}\n")
+            
+            # First condition
+            firstVals = roc_df[roc_df['TPR'] >= dtarpsTPR]
+            f.write(f"First threshold that surprasses DTARPS TPR: {firstVals.values[0]}\n")
+
+            # Second condition
+            secondVals = roc_df[roc_df['FPR'] <= dtarpsFPR]
+            f.write(f"Last threshold that surprasses DTARPS FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
+
+            # Finally any thresholds that meet both conditions
+            better_thresholds = secondVals[secondVals[secondVals['TPR'] >= dtarpsTPR]]
+            better_thresholds = better_thresholds.dropna()
+            if better_thresholds.size == 0:
+                f.write(f"No thresholds perform decisively better than DTARPS\n")
+            else:
+                f.write(f"DECISIVE THRESHOLDS\n")
+                better_vals = better_thresholds.values
+                for i in range(len(better_vals)):
+                    f.write(f"Threshold {i}: {better_vals[i]}\n")
 
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
@@ -138,17 +157,14 @@ def rf_analysis(rf_save_path: str):
     ax.set_ylabel('True Positive Rate')
     display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='Random forest ROC', pos_label=1)
     display.plot(ax=ax)
-    plt.savefig(os.path.join(rf_save_path, "ROC_curve.png"))
 
     # Show grids for plot
     plt.grid(which='both', linestyle='--', alpha=0.5)
     plt.tight_layout()
-    plt.show()
+    # Uncomment for debugging purposes: comment to prevent program interrupt
+    # plt.show()
+    plt.savefig(os.path.join(rf_save_path, "ROC_curve.png"))
 
-    # Get metrics for the following:
-    # TPR, FPR, FNR, TNR, PREC, NPV, MAT, F, AUC
-
-    
 
 training_path = "Random_Forest/RFtraining.csv"
 testing_path = "Random_Forest/RFtesting.csv"
