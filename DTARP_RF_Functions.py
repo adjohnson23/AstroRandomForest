@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
 # PARAMETERS
@@ -38,8 +39,8 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     y_train = rf_train['Class']
     x_test = rf_test.drop(columns=['Class'])
     y_test = rf_test['Class']
-    # print(x_train.head(5))
-    # print(y_train.head(5))
+    print(x_train.head(5))
+    print(y_train.head(5))
     # print(f"Training dataset max values:")
     # for col in rf_train.columns:
     #     print(f"{col}: {rf_train[col].max()}")
@@ -59,18 +60,18 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
         # Train the classifier
         rf_classifier.fit(x_train, y_train)
 
-        # Make predictions
-        y_pred = rf_classifier.predict(x_test)
-
         # Create the directory to store rf results
         os.mkdir(rf_save_path)
 
-        # TODO
         # Save the random forest
         # The random forest is compressed to save disk space
         rf_trees_path = os.path.join(rf_save_path, "random_forest.joblib")
         with open(rf_trees_path, 'wb') as f:
             joblib.dump(rf_classifier, f, compress=3)
+
+        # Save the datasets as csv files
+        rf_train.to_csv(os.path.join(rf_save_path, "training_set.csv"), index=False)
+        rf_test.to_csv(os.path.join(rf_save_path, "testing_set.csv"), index=False)
         
         # Save metrics used in a txt file
         rf_data_file = os.path.join(rf_save_path, "analysis_data.txt")
@@ -91,10 +92,62 @@ def rf_analysis(rf_save_path: str):
         print(f"There is no directory to {rf_save_path}!")
         return
     rf_tree_path = os.path.join(rf_save_path, "random_forest.joblib")
+    test_path = os.path.join(rf_save_path, "testing_set.csv")
     if not os.path.exists(rf_tree_path):
         print(f"There is no random forest in the path {rf_tree_path}!")
         return
+    if not os.path.exists(test_path):
+        print(f"There is no random forest in the path {test_path}!")
+        return
+
+    print("Analyzing random forest...")
+    
+    # Load random forest and test dataset
     rf = joblib.load(os.path.join(rf_save_path, "random_forest.joblib"))
+    testing_df = pd.read_csv(test_path)
+    x_test = testing_df.drop(columns=['Class'])
+    y_test = testing_df['Class']
+    print("Loaded test data")
+
+    # Make predictions
+    y_pred_prob = rf.predict_proba(x_test)
+
+    rf_data_file = os.path.join(rf_save_path, "analysis_data.txt")
+    with open(rf_data_file, 'w') as f:
+        # As the metrics are found, they should be written into a txt file or saved as a csv
+        fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
+        roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
+
+        # Save ROC values if the csv doesn't exist already
+        if not os.path.exists(os.path.join(rf_save_path, 'roc_thresholds.csv')):
+            roc_df = pd.DataFrame({
+                'TPR': tpr,
+                'FPR': fpr,
+                'Threshold': thresholds
+            })
+            roc_df.to_csv(os.path.join(rf_save_path, 'roc_thresholds.csv'), index=False)
+            f.write(f"\nROC_AUC score: {roc_auc}\n")
+
+    # Generate a plt plot showing the ROC curve
+    # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
+    plt.figure(figsize=(10,10))
+    ax = plt.subplot()
+    ax.set_xscale('log')
+    ax.set_yscale('linear')
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='Random forest ROC', pos_label=1)
+    display.plot(ax=ax)
+    plt.savefig(os.path.join(rf_save_path, "ROC_curve.png"))
+
+    # Show grids for plot
+    plt.grid(which='both', linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.show()
+
+    # Get metrics for the following:
+    # TPR, FPR, FNR, TNR, PREC, NPV, MAT, F, AUC
+
     
 
 training_path = "Random_Forest/RFtraining.csv"
@@ -126,4 +179,6 @@ feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit',
                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 print(f"Creating random forest of feature list {feature_list}")
-train_rf(training_df, testing_df, feature_list, "Random_Forest/first_fs_rf_python/", num_trees=100)
+rf_save_path = "Random_Forest/first_fs_rf_python/"
+train_rf(training_df, testing_df, feature_list, rf_save_path, num_trees=100)
+rf_analysis(rf_save_path)
