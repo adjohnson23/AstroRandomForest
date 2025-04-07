@@ -7,6 +7,8 @@ import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
+from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
+from sklearn.inspection import permutation_importance
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
 # PARAMETERS
@@ -78,6 +80,9 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     else:
         print(f"A random forest already exists in the save path {rf_save_path}")
 
+
+# RF ANALYSIS FUNCTION
+
 def rf_analysis(rf_save_path: str):
     if not os.path.exists(rf_save_path):
         print(f"There is no directory to {rf_save_path}!")
@@ -108,6 +113,7 @@ def rf_analysis(rf_save_path: str):
         # As the metrics are found, they should be written into a txt file or saved as a csv
         fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
         roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
+        prec, recall, _ = precision_recall_curve(y_test, y_pred_prob[:, 1], pos_label=1)
 
         # Save ROC values if the csv doesn't exist already
         if not os.path.exists(os.path.join(rf_save_path, 'roc_thresholds.csv')):
@@ -150,20 +156,36 @@ def rf_analysis(rf_save_path: str):
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
     plt.figure(figsize=(10,10))
-    ax = plt.subplot()
-    ax.set_xscale('log')
-    ax.set_yscale('linear')
-    ax.set_xlabel('False Positive Rate')
-    ax.set_ylabel('True Positive Rate')
-    display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='Random forest ROC', pos_label=1)
-    display.plot(ax=ax)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+    ax1.set_title('ROC curve on random forest')
+    ax1.set_xscale('log')
+    ax1.set_yscale('linear')
+    ax1.set_xlabel('False Positive Rate')
+    ax1.set_ylabel('True Positive Rate')
+
+    roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='Random forest ROC', pos_label=1).plot(ax=ax1)
+    pr_display = PrecisionRecallDisplay(precision=prec, recall=recall).plot(ax=ax2)
 
     # Show grids for plot
-    plt.grid(which='both', linestyle='--', alpha=0.5)
     plt.tight_layout()
     # Uncomment for debugging purposes: comment to prevent program interrupt
     # plt.show()
     plt.savefig(os.path.join(rf_save_path, "ROC_curve.png"))
+
+    # Plot feature importance: what variables were the most important?
+    # result = permutation_importance(
+    #     rf, x_test, y_test, n_repeats=10, random_state=42, n_jobs=2
+    # )
+    # forest_importances = pd.Series(result.importances_mean, index=x_test.columns)
+
+    # ax3 = plt.subplot()
+    # forest_importances.plot.bar(yerr=result.importances_std, ax=ax3)
+    # ax3.set_title("Feature importances using permutation on random forest")
+    # ax3.set_ylabel("Mean accuracy decrease")
+    # Uncomment for debugging purposes: comment to prevent program interrupt
+    # plt.show()
+
+    plt.savefig(os.path.join(rf_save_path, "feature_importance.png"))
 
 
 training_path = "Random_Forest/RFtraining.csv"
@@ -195,6 +217,6 @@ feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit',
                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 print(f"Creating random forest of feature list {feature_list}")
-rf_save_path = "Random_Forest/first_fs_rf_python/"
-train_rf(training_df, testing_df, feature_list, rf_save_path, num_trees=100)
+rf_save_path = "Random_Forest/first_full_rf/"
+# train_rf(training_df, testing_df, feature_list, rf_save_path, num_trees=100)
 rf_analysis(rf_save_path)
