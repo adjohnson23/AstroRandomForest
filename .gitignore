@@ -2,3 +2,5 @@ data/
 Random_Forest/
 .venv
 __pycache__
+feature_list.csv
+exoplanet_transit_data.csv

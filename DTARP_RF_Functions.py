@@ -47,7 +47,7 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     # random_state: Seed for tree growth
     # The random forest will only be set up if the save path doesn't exist already (don't accidentally overwrite existing rfs)
     if not os.path.exists(rf_save_path):
-        rf_classifier = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1, bootstrap=True, oob_score=True, criterion=criterion, n_jobs=5)
+        rf_classifier = RandomForestClassifier(n_estimators=num_trees, random_state=seed, verbose=1, bootstrap=True, oob_score=True, criterion=criterion, n_jobs=10)
         print(f"Generated a random forest with {num_trees} trees and seed {seed}")
 
         # Train the classifier
@@ -182,10 +182,10 @@ def rf_analysis(rf_save_path: str):
     # forest_importances.plot.bar(yerr=result.importances_std, ax=ax3)
     # ax3.set_title("Feature importances using permutation on random forest")
     # ax3.set_ylabel("Mean accuracy decrease")
-    # Uncomment for debugging purposes: comment to prevent program interrupt
+    # # Uncomment for debugging purposes: comment to prevent program interrupt
     # plt.show()
 
-    #plt.savefig(os.path.join(rf_save_path, "feature_importance.png"))
+    # plt.savefig(os.path.join(rf_save_path, "feature_importance.png"))
 
 
 # training_path = "Random_Forest/RFtraining.csv"
