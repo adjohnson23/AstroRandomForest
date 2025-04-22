@@ -83,7 +83,7 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
 
 # RF ANALYSIS FUNCTION
 
-def rf_analysis(rf_save_path: str):
+def rf_analysis(rf_save_path: str, dtarpsPlus: bool = False):
     if (not ensure_forest_exists(rf_save_path)):
         print(f"Some required files missing. Aborting...")
         return
@@ -107,6 +107,8 @@ def rf_analysis(rf_save_path: str):
         # Overwrite the existing analysis file
         print("Analysis file already exists, overwriting...")
         os.remove(rf_data_file)
+
+    removeForest = False
     with open(rf_data_file, 'w') as f:
         print("Writing to analysis file...")
         # As the metrics are found, they should be written into a txt file or saved as a csv
@@ -145,12 +147,20 @@ def rf_analysis(rf_save_path: str):
         better_thresholds = better_thresholds.dropna()
         if better_thresholds.size == 0:
             chars_written = f.write(f"No thresholds perform decisively better than DTARPS\n")
+            removeForest = True
         else:
             chars_written = f.write(f"DECISIVE THRESHOLDS\n")
             better_vals = better_thresholds.values
             for i in range(len(better_vals)):
                 chars_written = f.write(f"Threshold {i}: {better_vals[i]}\n")
-
+    
+    # Only remove if forests worse than DTARPS are being filtered out
+    if removeForest and dtarpsPlus:
+        print("Forest did not perform better than DTARPS: Scrapping")
+        for f in os.listdir(rf_save_path):
+            os.remove(os.path.join(rf_save_path, f))
+        os.rmdir(rf_save_path)
+        return
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
     plt.figure(figsize=(10,10))

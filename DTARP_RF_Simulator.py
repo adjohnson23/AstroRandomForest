@@ -10,14 +10,16 @@ import random
 # rf_criterions: A list of the criterions to simulate. Restricted to "gini", "log_loss", and "entropy"
 # rf_seeds: A list of seeds to simulate.
 # fs_num: An identifier for a feature set being passed in. By default, this is zero.
-def simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0, plot_fi=False):
+# plot_fi: Whether to plot the feature importance plot for the forest.
+# dtarpsPlus: Whether to save all forests or only forests that surpass DTARPS-1 performance.
+def simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0, plot_fi=False, dtarpsPlus=False):
     for seed in rf_seeds:
         for num_trees in rf_trees:
             for criterion in rf_criterions:
                 print(f"Growing random forest with {num_trees} trees and criterion {criterion} with seed {seed}")
                 rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{fs_num}/"
                 drf_func.train_rf(training_df, testing_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
-                drf_func.rf_analysis(rf_save_path)
+                drf_func.rf_analysis(rf_save_path, dtarpsPlus)
                 if plot_fi:
                     drf_func.rf_feature_importance(rf_save_path)
     print("DONE")
@@ -114,40 +116,40 @@ testing_df['P_trend.improv'] = testing_df['Prob_trend.resid'] / testing_df['P_tr
 #                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 # print(f"Creating random forest of feature list {feature_list}")
 
-feature_list = ['TCF_period',
-'TCF_mad',
-'snr.transit',
-'planet_rad_tcf',
-'Folded_AD',
-'even.odd.p_value',
-'Class',
-'TCF_shape',
-'logg',
-'skew.lc',
-'Redchisq.lc',
-'IQR.lc',
-'LOESS_mnsnr',
-'POM.lc',
-'Prob_autocor.resid',
-'P_norm.lc',
-'Prob_trend.resid',
-'quantiles.resid.10',
-'trans.p_value'
-]
+# feature_list = ['TCF_period',
+# 'TCF_mad',
+# 'snr.transit',
+# 'planet_rad_tcf',
+# 'Folded_AD',
+# 'even.odd.p_value',
+# 'Class',
+# 'TCF_shape',
+# 'logg',
+# 'skew.lc',
+# 'Redchisq.lc',
+# 'IQR.lc',
+# 'LOESS_mnsnr',
+# 'POM.lc',
+# 'Prob_autocor.resid',
+# 'P_norm.lc',
+# 'Prob_trend.resid',
+# 'quantiles.resid.10',
+# 'trans.p_value'
+# ]
 
 # Create simulation sets
 rf_trees = [10000]
 rf_criterions = ["log_loss"]
 rf_seeds = [42]
 
-# feature_sets = simulate_feature_sets(100)
-# print(f"Created a total of {len(feature_sets)} feature sets.")
-# for fs in feature_sets:
-#     print(f"FEATURE SET: {fs}")
+feature_sets = simulate_feature_sets(200)
+print(f"Created a total of {len(feature_sets)} feature sets.")
+for fs in feature_sets:
+    print(f"FEATURE SET: {fs}")
 
-# fs_num = 0
-# for feature_list in feature_sets:
-#     simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees, rf_criterions, rf_seeds, fs_num)
-#     fs_num += 1
+fs_num = 0
+for feature_list in feature_sets:
+    simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees, rf_criterions, rf_seeds, fs_num, dtarpsPlus=True)
+    fs_num += 1
 
-simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees, rf_criterions, rf_seeds, 777, True)
+#simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees, rf_criterions, rf_seeds, 419, dtarpsPlus=True)
