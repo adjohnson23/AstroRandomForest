@@ -18,7 +18,7 @@ from sklearn.inspection import permutation_importance
 # rf_save_path: The file path to save the random forest into.
 # num_trees: Number of trees to grow. The default is 100.
 # seed: What seed to generate a random forest from. The default is 42.
-def train_rf(training_df, testing_df, feature_list, rf_save_path,
+def train_rf(training_df, feature_list, rf_save_path,
              num_trees=100, criterion="gini", seed=42):
     if training_df is None:
         print("The training set doesn't exist!")
@@ -26,21 +26,16 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
     
     # Constrain RF training to given feature list
     rf_train = training_df[feature_list]
-    rf_test = testing_df[feature_list]
 
     # Replace instances of infinity with NaN
     rf_train = rf_train.mask(np.isinf(rf_train), np.nan)
-    rf_test = rf_test.mask(np.isinf(rf_train), np.nan)
 
     # Drop any rows with NaN in them
     rf_train = rf_train.dropna()
-    rf_test = rf_test.dropna()
 
     # Split the X and Y 
     x_train = rf_train.drop(columns=['Class'])
     y_train = rf_train['Class']
-    x_test = rf_test.drop(columns=['Class'])
-    y_test = rf_test['Class']
 
     # Set up a random forest classifier
     # n_estimators: How many trees are grown?
@@ -61,10 +56,6 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
         rf_trees_path = os.path.join(rf_save_path, "random_forest.joblib")
         with open(rf_trees_path, 'wb') as f:
             joblib.dump(rf_classifier, f, compress=3)
-
-        # Save the datasets as csv files
-        rf_train.to_csv(os.path.join(rf_save_path, "training_set.csv"), index=False)
-        rf_test.to_csv(os.path.join(rf_save_path, "testing_set.csv"), index=False)
         
         # Save metrics used in a txt file
         rf_data_file = os.path.join(rf_save_path, "rf_parameters_data.txt")
@@ -82,87 +73,148 @@ def train_rf(training_df, testing_df, feature_list, rf_save_path,
 
 
 # RF ANALYSIS FUNCTION
+# TODO: 1. Refactor this to also include year 2 testing data
+# 2. Make use of existing test files instead of copying them
+# 
 
-def rf_analysis(rf_save_path: str, dtarpsPlus: bool = False):
-    if (not ensure_forest_exists(rf_save_path)):
-        print(f"Some required files missing. Aborting...")
+def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, dtarpsPlus: bool = False):
+    if not ensure_forest_exists(rf_save_path, rf_analysis_folder):
+        print(f"Some files are missing. Aborting...")
         return
-    rf_tree_path = os.path.join(rf_save_path, "random_forest.joblib")
-    test_path = os.path.join(rf_save_path, "testing_set.csv")
 
     print("Analyzing random forest...")
     
     # Load random forest and test dataset
     rf = joblib.load(os.path.join(rf_save_path, "random_forest.joblib"))
-    testing_df = pd.read_csv(test_path)
-    x_test = testing_df.drop(columns=['Class'])
-    y_test = testing_df['Class']
-    print("Loaded test data")
 
-    # Make predictions
-    y_pred_prob = rf.predict_proba(x_test)
+    # Indexer + datastructures to hold results
+    file_ind = 0
+    fpr_ds = []
+    tpr_ds = []
+    thresholds_ds = []
+    roc_auc_ds = []
+    prec_ds = []
+    recall_ds = []
 
-    rf_data_file = os.path.join(rf_save_path, "analysis_data.txt")
-    if (os.path.exists(rf_data_file)):
-        # Overwrite the existing analysis file
-        print("Analysis file already exists, overwriting...")
-        os.remove(rf_data_file)
+    for f in os.listdir(rf_analysis_folder):
+        testing_df = pd.read_csv(os.path.join(rf_analysis_folder, f))
+        # Constrain dataframe to the feature list
+        testing_df = testing_df[feature_list]
 
-    removeForest = False
-    with open(rf_data_file, 'w') as f:
-        print("Writing to analysis file...")
-        # As the metrics are found, they should be written into a txt file or saved as a csv
-        fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
-        roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
-        prec, recall, _ = precision_recall_curve(y_test, y_pred_prob[:, 1], pos_label=1)
+        # Replace instances of infinity with NaN
+        testing_df = testing_df.mask(np.isinf(testing_df), np.nan)
 
-        # Save ROC values if the csv doesn't exist already
-        roc_df = pd.DataFrame({
-            'TPR': tpr,
-            'FPR': fpr,
-            'Threshold': thresholds
-        })
-        if not os.path.exists(os.path.join(rf_save_path, 'roc_thresholds.csv')):
-            roc_df.to_csv(os.path.join(rf_save_path, 'roc_thresholds.csv'), index=False)
-            chars_written = f.write(f"ROC_AUC score: {roc_auc}\n")
+        # Drop any rows with NaN in them
+        testing_df = testing_df.dropna()
 
-        # Write notable threshold values into the txt file
-        # 1. First threshold where TPR > TPR of DTARPS1
-        # 2. Last threshold where FPR < FPR of DTARPS1
-        # 3+. Any thresholds where both 1 and 2 are met
-        dtarpsTPR = 0.9283
-        dtarpsFPR = 0.0037
-        dtarpsThreshold = 0.174
-        chars_written = f.write(f"\nNOTABLE THRESHOLDS\nComparing DTARPS performance: TPR {dtarpsTPR}, FPR {dtarpsFPR}, Threshold {dtarpsThreshold}\n")
-        # First condition
-        firstVals = roc_df[roc_df['TPR'] >= dtarpsTPR]
-        chars_written = f.write(f"First threshold that surprasses DTARPS TPR: {firstVals.values[0]}\n")
+        x_test = testing_df.drop(columns=['Class'])
+        y_test = testing_df['Class']
+        print(f"Loaded test data. Number of entries: {len(x_test)}")
 
-        # Second condition
-        secondVals = roc_df[roc_df['FPR'] <= dtarpsFPR]
-        chars_written = f.write(f"Last threshold that surprasses DTARPS FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
+        # Make predictions
+        y_pred_prob = rf.predict_proba(x_test)
 
-        # Finally any thresholds that meet both conditions
-        better_thresholds = secondVals[secondVals['TPR'] >= dtarpsTPR]
-        better_thresholds = better_thresholds.dropna()
-        if better_thresholds.size == 0:
-            chars_written = f.write(f"No thresholds perform decisively better than DTARPS\n")
-            removeForest = True
-        else:
-            chars_written = f.write(f"DECISIVE THRESHOLDS\n")
-            better_vals = better_thresholds.values
-            for i in range(len(better_vals)):
-                chars_written = f.write(f"Threshold {i}: {better_vals[i]}\n")
+        rf_data_file = os.path.join(rf_save_path, f"analysis_data{file_ind}.txt")
+        if (os.path.exists(rf_data_file)):
+            # Overwrite the existing analysis file
+            print("Analysis file already exists, overwriting...")
+            os.remove(rf_data_file)
+
+        removeForest = False
+        with open(rf_data_file, 'w') as f:
+            print("Writing to analysis file...")
+            # As the metrics are found, they should be written into a txt file or saved as a csv
+            fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
+            roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
+            prec, recall, _ = precision_recall_curve(y_test, y_pred_prob[:, 1], pos_label=1)
+
+            # Save ROC values if the csv doesn't exist already
+            roc_df = pd.DataFrame({
+                'TPR': tpr,
+                'FPR': fpr,
+                'Threshold': thresholds
+            })
+            if not os.path.exists(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv')):
+                roc_df.to_csv(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv'), index=False)
+                chars_written = f.write(f"ROC_AUC score: {roc_auc}\n")
+            
+            # Add values to datastructures
+            fpr_ds.append(fpr)
+            tpr_ds.append(tpr)
+            thresholds_ds.append(thresholds)
+            roc_auc_ds.append(roc_auc)
+            prec_ds.append(prec)
+            recall_ds.append(recall)
+
+            # Write notable threshold values into the txt file
+            # If the file is the one used for DTARPS, use DTARPS thresholds, otherwise use set thresholds
+            # 1. First threshold where TPR > TPR of DTARPS1
+            # 2. Last threshold where FPR < FPR of DTARPS1
+            # 3+. Any thresholds where both 1 and 2 are met
+
+            if f.name == "RFtesting.csv":
+                dtarpsTPR = 0.9283
+                dtarpsFPR = 0.0037
+                dtarpsThreshold = 0.174
+                chars_written = f.write(f"\nNOTABLE THRESHOLDS\nComparing DTARPS performance: TPR {dtarpsTPR}, FPR {dtarpsFPR}, Threshold {dtarpsThreshold}\n")
+                # First condition
+                firstVals = roc_df[roc_df['TPR'] >= dtarpsTPR]
+                chars_written = f.write(f"First threshold that surprasses DTARPS TPR: {firstVals.values[0]}\n")
+
+                # Second condition
+                secondVals = roc_df[roc_df['FPR'] <= dtarpsFPR]
+                chars_written = f.write(f"Last threshold that surprasses DTARPS FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
+
+                # Finally any thresholds that meet both conditions
+                better_thresholds = secondVals[secondVals['TPR'] >= dtarpsTPR]
+                better_thresholds = better_thresholds.dropna()
+                if better_thresholds.size == 0:
+                    chars_written = f.write(f"No thresholds perform decisively better than DTARPS\n")
+                    removeForest = True
+                else:
+                    chars_written = f.write(f"DECISIVE THRESHOLDS\n")
+                    better_vals = better_thresholds.values
+                    for i in range(len(better_vals)):
+                        chars_written = f.write(f"Threshold {i}: {better_vals[i]}\n")
+            else:
+                thresholdTPR = 0.85
+                thresholdFPR = 0.005
+                chars_written = f.write(f"\nNOTABLE THRESHOLDS\nComparing general performance: TPR {thresholdTPR}, FPR {thresholdFPR}\n")
+                # First condition
+                firstVals = roc_df[roc_df['TPR'] >= thresholdTPR]
+                chars_written = f.write(f"First threshold that surprasses set TPR: {firstVals.values[0]}\n")
+
+                # Second condition
+                secondVals = roc_df[roc_df['FPR'] <= thresholdFPR]
+                chars_written = f.write(f"Last threshold that surprasses set FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
+
+                # Finally any thresholds that meet both conditions
+                better_thresholds = secondVals[secondVals['TPR'] >= thresholdTPR]
+                better_thresholds = better_thresholds.dropna()
+                if better_thresholds.size == 0:
+                    chars_written = f.write(f"No thresholds perform decisively better than set thresholds\n")
+                    removeForest = True
+                else:
+                    chars_written = f.write(f"DECISIVE THRESHOLDS\n")
+                    better_vals = better_thresholds.values
+                    for i in range(len(better_vals)):
+                        chars_written = f.write(f"Threshold {i}: {better_vals[i]}\n")
+        
+        # This is the base analysis file to be looking for and whether it did better than DTARPS
+        if f.name == "RFtesting.csv":
+            # Only remove if forests worse than DTARPS are being filtered out
+            if removeForest and dtarpsPlus:
+                print("Forest did not perform better than DTARPS: Scrapping")
+                for f in os.listdir(rf_save_path):
+                    os.remove(os.path.join(rf_save_path, f))
+                os.rmdir(rf_save_path)
+                return
+        file_ind += 1
     
-    # Only remove if forests worse than DTARPS are being filtered out
-    if removeForest and dtarpsPlus:
-        print("Forest did not perform better than DTARPS: Scrapping")
-        for f in os.listdir(rf_save_path):
-            os.remove(os.path.join(rf_save_path, f))
-        os.rmdir(rf_save_path)
-        return
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
+    # These plots will display data from all analysis files, in addition to the base one.
+
     plt.figure(figsize=(10,10))
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
     ax1.set_title('ROC curve on random forest')
@@ -171,33 +223,45 @@ def rf_analysis(rf_save_path: str, dtarpsPlus: bool = False):
     ax1.set_xlabel('False Positive Rate')
     ax1.set_ylabel('True Positive Rate')
 
-    roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='Random forest ROC', pos_label=1).plot(ax=ax1)
-    pr_display = PrecisionRecallDisplay(precision=prec, recall=recall).plot(ax=ax2)
+    for i in range(len(fpr_ds)):
+        roc_display = RocCurveDisplay(fpr=fpr_ds[i], tpr=tpr_ds[i], roc_auc=roc_auc_ds[i], estimator_name=f'Rf {i}', pos_label=1).plot(ax=ax1)
+        pr_display = PrecisionRecallDisplay(precision=prec_ds[i], recall=recall_ds[i]).plot(ax=ax2)
 
     # Show grids for plot
     plt.tight_layout()
     # Uncomment for debugging purposes: comment to prevent program interrupt
-    # plt.show()
     plt.savefig(os.path.join(rf_save_path, "ROC_curve.png"))
     plt.cla()
     plt.clf()
 
-def rf_feature_importance(rf_save_path: str):
-    if (not ensure_forest_exists(rf_save_path)):
+def rf_feature_importance(rf_save_path: str, rf_analysis_folder: str, feature_list: list):
+    if (not ensure_forest_exists(rf_save_path, rf_analysis_folder)):
         print(f"Some required files missing. Aborting...")
         return
-    rf_tree_path = os.path.join(rf_save_path, "random_forest.joblib")
-    test_path = os.path.join(rf_save_path, "testing_set.csv")
+    test_path = os.path.join(rf_analysis_folder, "RFtestingUpdate.csv")
     print("Generating feature importance plot")
     
     # Plot feature importance: what variables were the most important?
     # Load random forest and test dataset
     rf = joblib.load(os.path.join(rf_save_path, "random_forest.joblib"))
     testing_df = pd.read_csv(test_path)
+    # Constrain dataframe to the feature list
+    testing_df = testing_df[feature_list]
+
+    # Replace instances of infinity with NaN
+    testing_df = testing_df.mask(np.isinf(testing_df), np.nan)
+
+    # Drop any rows with NaN in them
+    testing_df = testing_df.dropna()
+
     x_test = testing_df.drop(columns=['Class'])
     y_test = testing_df['Class']
     print("Loaded test data")
 
+    # Feature importance is calculated using feature permutation.
+    # Sklearn docs: https://scikit-learn.org/stable/modules/permutation_importance.html#permutation-importance
+    # TLDR: Measures contribution of each feature to a fitted model's statistical performance on a given dataset
+    # Randomly shuffle values of a single feature and observing resulting degradation
     result = permutation_importance(
         rf, x_test, y_test, n_repeats=10, random_state=42, n_jobs=2
     )
@@ -215,16 +279,15 @@ def rf_feature_importance(rf_save_path: str):
     plt.clf()
 
 # Ensures that all required forest files exist for analysis.
-def ensure_forest_exists(rf_save_path: str) -> bool:
-    if not os.path.exists(rf_save_path):
-        print(f"There is no directory to {rf_save_path}!")
+def ensure_forest_exists(rf_save_path: str, rf_analysis_folder: str) -> bool:
+    rf_forest_dir = os.path.join(rf_save_path, "random_forest.joblib")
+    if not os.path.exists(rf_forest_dir):
+        print(f"There is no forest in the path {rf_forest_dir}!")
         return False
-    rf_tree_path = os.path.join(rf_save_path, "random_forest.joblib")
-    test_path = os.path.join(rf_save_path, "testing_set.csv")
-    if not os.path.exists(rf_tree_path):
-        print(f"There is no random forest in the path {rf_tree_path}!")
+    if not os.path.exists(rf_analysis_folder):
+        print(f"The analysis folder path {rf_forest_dir} doesn't exist!")
         return False
-    if not os.path.exists(test_path):
-        print(f"There is no random forest in the path {test_path}!")
+    if os.listdir(rf_analysis_folder).count == 0:
+        print(f"Analysis folder provided, but no analysis files within it.")
         return False
     return True
