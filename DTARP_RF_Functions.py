@@ -72,9 +72,14 @@ def train_rf(training_df, feature_list, rf_save_path,
         print(f"A random forest already exists in the save path {rf_save_path}")
 
 
+# TODO: Make a version of rf_analysis which puts all data into a csv file instead
+
+def rf_csv_analysis(rf_save_path: str, csv_path: str, feature_list: list):
+    
+    return
+
 # RF ANALYSIS FUNCTION
-# TODO: 1. Refactor this to also include year 2 testing data
-# 2. Make use of existing test files instead of copying them
+# TODO: Figure out a more elegant/smart way to get a good feature list
 # 
 
 def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, dtarpsPlus: bool = False):

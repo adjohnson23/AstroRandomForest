@@ -1,6 +1,59 @@
 import pandas as pd
 import DTARP_RF_Functions as drf_func
-import random, math
+import random, time
+
+# Try the year 2 dataset
+# Could see what 
+# Radius VS period (Y1 & Y2) to verify the planet types are consistent
+
+# TODO: Make a NEW recursive tree program
+# BRAINSTORMING: The goal to to build a feature list that provides the best results.
+# How do we cut this down?
+# Inputs: Features selected
+# Outputs: ROC for training + testing. ROC difference could be evaluated, looking for a value as close to 0 at possible to signify little to no overfitting.
+# Cites I have read
+# General Feature Selection Guide: https://machinelearningmastery.com/feature-selection-with-real-and-categorical-data/
+# sklearn doc on KSelect: https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.SelectKBest.html
+#
+# The Strategy: Filtering. I am somewhat doing this, although manually. The idea is to look at feature importance and use that to build the feature set.
+# Instead of keeping the base feature set constant between trees, select the K best features upon evaluation as the base feature set for the next forest.
+# Will need to calculate statistics to use to determine this.
+# ROC and ROC-diff should be good, but other statistics may be good too
+# 1. Start with base feature set
+# 2. Add a pseudo-random selection of features
+# 2. Grow a forest
+# 3. Select the K most important features based on statistics
+# 4. Grow another forest with only those features
+# 5. Repeat steps 2-5 X number of times specified by the user.
+# What needs to be figuring out: The scoring functions with which to choose the K best features
+# Some scoring functions to try: chi2, f_classif, mutual_info_classif
+# If I can combine results from multiple of the test datasets, that would be good too
+# Perhaps I make my own custom scoring functions too
+
+# Adjustable things: K, score functions
+def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0):
+    # Begin with base feature set
+    feature_groups = generate_feature_clusters()
+    base_feature_set = build_base_feature_set()
+
+    # Grow a tree with it to establish a baseline
+    drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
+    
+    # Exploration phase: Two modes perhaps
+    # Mode 1: Don't select the same feature again until all features have been selected
+    # Mode 2: Repeat selection is fine (Implement this first)
+
+    # Select a random number of features
+
+    # Grow a forest
+
+    # Select K most important features using score mechanisms
+
+    # Grow a forest to inspect the new baseline
+
+    # Repeat
+
+    return
 
 # simulate_rf_combinations
 # Simulate a set of random forests based on provided arguments.
@@ -159,24 +212,30 @@ feature_list = ['TCF_period',
                 ]
 
 # Create simulation sets
-rf_trees = [10000]
+rf_trees = [20000]
 rf_criterions = ["log_loss"]
 rf_seeds = [42]
 
-# feature_sets = simulate_feature_sets(250)
+# feature_sets = simulate_feature_sets(100)
 # print(f"Created a total of {len(feature_sets)} feature sets.")
 # for fs in feature_sets:
 #     print(f"FEATURE SET: {fs}")
 
-# fs_num = 0
-# for feature_list in feature_sets:
-#     simulate_rf_combinations(feature_list, training_df, testing_df, rf_trees, rf_criterions, rf_seeds, fs_num, dtarpsPlus=True)
-#     fs_num += 1
-
 training_path = "Random_Forest/RFtrainingUpdate.csv"
 analysis_folder = "Random_Forest/test_data/"
 training_df = pd.read_csv(training_path)
-simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 13, plot_fi=False, dtarpsPlus=True)
+
+# fs_num = 0
+# for feature_list in feature_sets:
+#     simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, fs_num, dtarpsPlus=True)
+#     fs_num += 1
+
+# print(f"ALL DONE, it took {time.time}")
+simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 22, dtarpsPlus=True)
+# training_path = "Random_Forest/RFtrainingUpdate.csv"
+# analysis_folder = "Random_Forest/test_data/"
+# training_df = pd.read_csv(training_path)
+# simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 13, plot_fi=False, dtarpsPlus=True)
 
 # testing_path1 = "Random_Forest/test_data/year2_testing.csv"
 # testing_path2 = "Random_Forest/test_data/year2_testing_with_large_zero_class.csv"
