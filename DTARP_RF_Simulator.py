@@ -71,12 +71,12 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                     # For now, I set K to be equal to half the feature set size
                     k = math.floor(len(feature_set) / 2)
                     # TODO: Implement
-                    drf_func.select_Kfeatures(rf_analysis_folder, feature_set, k)
-
-                    # Grow a forest to inspect the new baseline
+                    base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_set, k)
+                    # Make sure the Class variable remains for the test dataset
+                    base_feature_set.append('Class')
+                    print(f"RESULTING FEATURE SET: {base_feature_set}")
 
                     # Repeat
-
 
                 combo_num += 1
                 fs_num = 0

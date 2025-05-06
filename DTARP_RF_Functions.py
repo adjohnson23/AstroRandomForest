@@ -6,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from functools import reduce
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
@@ -81,6 +83,10 @@ def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
     print("Selecting K features. Currently testing.")
     # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
     set_config(transform_output="pandas")
+
+    # Store resulting selected feature sets
+    feature_lists = []
+
     for tf in os.listdir(rf_analysis_folder):
         testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
         # Constrain dataframe to the feature list
@@ -103,8 +109,42 @@ def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
         x_new = SelectKBest(f_classif, k=k).fit_transform(x_test, y_test)
         print(f"Number of features: {len(x_new.columns)}")
         print(f"Features selected: {x_new.columns}")
+        feature_lists.append(x_new.columns)
 
-    return
+    # Unify the results into one feature set.
+    # Start by taking all features agreed upon.
+    # From there, work down to get features until feature set has K features.
+    unified_fs = list(reduce(lambda x, y: set(x) & set(y), feature_lists))
+    print(f"Common features between them all: {unified_fs}")
+
+    if len(unified_fs) == k:
+        print(f"Final feature list: {unified_fs}")
+        return unified_fs
+
+    # Append from common features in the y2 datasets
+    y2_lists = []
+    y2_lists.append(feature_lists[1])
+    y2_lists.append(feature_lists[2])
+    sub_fs = list(reduce(lambda x, y: set(x) & set(y), y2_lists))
+
+    # Append values until length = K or end of sub_fs
+    for i in range(len(sub_fs)):
+        if sub_fs[i] not in unified_fs:
+            unified_fs.append(sub_fs[i])
+            if len(unified_fs) == k:
+                print(f"Final feature list: {unified_fs}")
+                return unified_fs
+
+    # Otherwise, simply append values from the first feature set
+    y1_list = feature_lists[0]
+    for i in range(len(y1_list)):
+        if y1_list[i] not in unified_fs:
+            unified_fs.append(y1_list[i])
+            if len(unified_fs) == k:
+                print(f"Final feature list: {unified_fs}")
+                return unified_fs
+    print(f"Final feature list: {unified_fs}")
+    return unified_fs
 
 # Helper function to write data to a txt file
 # Open the file and write the provided string into it
