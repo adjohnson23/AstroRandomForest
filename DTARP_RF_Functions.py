@@ -11,6 +11,7 @@ from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from sklearn.inspection import permutation_importance
 from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn import set_config
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
 # PARAMETERS
@@ -24,7 +25,7 @@ def train_rf(training_df, feature_list, rf_save_path,
              num_trees=100, criterion="gini", seed=42):
     if training_df is None:
         print("The training set doesn't exist!")
-        return
+        return -1
     
     # Constrain RF training to given feature list
     rf_train = training_df[feature_list]
@@ -72,10 +73,14 @@ def train_rf(training_df, feature_list, rf_save_path,
             f.write(f"Seed used: {seed}\n")
     else:
         print(f"A random forest already exists in the save path {rf_save_path}")
+        return -1
+    return 1
 
 
 def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
     print("Selecting K features. Currently testing.")
+    # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
+    set_config(transform_output="pandas")
     for tf in os.listdir(rf_analysis_folder):
         testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
         # Constrain dataframe to the feature list
@@ -94,8 +99,10 @@ def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
         # Perform the ANOVA feature test.
         # Works best on numerical-input, categorical-output based sets.
         print("Performing ANOVA feature selection test...")
-        x_new = SelectKBest(f_classif, k).fit_transform(x_test, y_test)
-        print(f"Features selected: {x_test.columns}")
+        print(f"Shapes: Training: {x_test.shape}, Testing: {y_test.shape}")
+        x_new = SelectKBest(f_classif, k=k).fit_transform(x_test, y_test)
+        print(f"Number of features: {len(x_new.columns)}")
+        print(f"Features selected: {x_new.columns}")
 
     return
 
