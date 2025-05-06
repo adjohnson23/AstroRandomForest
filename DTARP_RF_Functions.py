@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from sklearn.inspection import permutation_importance
+from sklearn.feature_selection import SelectKBest, f_classif
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
 # PARAMETERS
@@ -73,25 +74,30 @@ def train_rf(training_df, feature_list, rf_save_path,
         print(f"A random forest already exists in the save path {rf_save_path}")
 
 
-# TODO: Make a version of rf_analysis which puts all data into a csv file instead
-# This one will store the following metrics:
-# Forest Number: ID number of the random forest
-# Time: Date/Time in which the forest was grown and saved
-# ROC-AUC Score (All): Area under the curve (All = OG, Y2, & Y20)
-    # OG: Original testing dataset
-    # Y2: Year 2 testing dataset
-    # Y20: Year 2 testing dataset with more 0s
-# DtTPRf (All): TPR on first surpass of DTARPS TPR
-# DtFPRf (All): FPR on first surpass of DTARPS TPR
-# DtTPRl (All): TPR on last surpass of DTARPS FPR
-# DtFPRl (All): FPR on last surpass of DTARPS FPR
-# Add flexibility to add more columns (Append them to the end)
-# Instead of creating an analysis_data.txt file, put the data into the csv file
-# roc_thresholds files are still created
+def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
+    print("Selecting K features. Currently testing.")
+    for tf in os.listdir(rf_analysis_folder):
+        testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
+        # Constrain dataframe to the feature list
+        testing_df = testing_df[feature_list]
 
-# RF ANALYSIS FUNCTION
-# TODO: Figure out a more elegant/smart way to get a good feature list
-# 
+        # Replace instances of infinity with NaN
+        testing_df = testing_df.mask(np.isinf(testing_df), np.nan)
+
+        # Drop any rows with NaN in them
+        testing_df = testing_df.dropna()
+
+        x_test = testing_df.drop(columns=['Class'])
+        y_test = testing_df['Class']
+        print(f"Loaded test data. Number of entries: {len(x_test)}")
+
+        # Perform the ANOVA feature test.
+        # Works best on numerical-input, categorical-output based sets.
+        print("Performing ANOVA feature selection test...")
+        x_new = SelectKBest(f_classif, k).fit_transform(x_test, y_test)
+        print(f"Features selected: {x_test.columns}")
+
+    return
 
 # Helper function to write data to a txt file
 # Open the file and write the provided string into it
@@ -185,7 +191,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         else:
             write_to_txt(rf_data_file, f"Time grown: {time}\n")
             write_to_txt(rf_data_file, f"ROC_AUC score: {roc_auc}\n")
-        
+
         # Add values to datastructures
         fpr_ds.append(fpr)
         tpr_ds.append(tpr)

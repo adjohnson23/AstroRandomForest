@@ -1,6 +1,6 @@
 import pandas as pd
 import DTARP_RF_Functions as drf_func
-import random, time
+import random, time, math
 
 # Try the year 2 dataset
 # Could see what 
@@ -31,31 +31,47 @@ import random, time
 # Perhaps I make my own custom scoring functions too
 
 # Adjustable things: K, score functions
-def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0):
+def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], num_iterations=100):
+    fs_num = 0
+    combo_num = 0
     for seed in rf_seeds:
         for num_trees in rf_trees:
             for criterion in rf_criterions:
                 # Begin with base feature set
                 feature_groups = generate_feature_clusters()
                 base_feature_set = build_base_feature_set()
+                eliminated_feature_set = [] # TODO: Not using rn, but make use of it later
 
                 # Grow a tree with it to establish a baseline
-                rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{fs_num}/"
-                drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
+                rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{combo_num}.{fs_num}/"
+                drf_func.train_rf(training_df, base_feature_set, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
+                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May5forest_analysis_data.csv")
                 
                 # Exploration phase: Two modes perhaps
                 # Mode 1: Don't select the same feature again until all features have been selected
                 # Mode 2: Repeat selection is fine (Implement this first)
 
-                # Select a random number of features
+                for iter in range(num_iterations):
+                    fs_num += 1
+                    # Select a random number of features
+                    feature_set = build_feature_set(feature_groups, base_feature_set, eliminated_feature_set)
 
-                # Grow a forest
+                    # Grow a forest
+                    drf_func.train_rf(training_df, feature_set, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
 
-                # Select K most important features using score mechanisms
+                    # Select K most important features using score mechanisms
+                    # For now, I set K to be equal to half the feature set size
+                    k = math.floor(len(feature_list) / 2)
+                    # TODO: Implement
+                    drf_func.select_Kfeatures(rf_analysis_folder, feature_set, k)
 
-                # Grow a forest to inspect the new baseline
+                    # Grow a forest to inspect the new baseline
 
-                # Repeat
+                    # Repeat
+
+
+                combo_num += 1
+                fs_num = 0
 
     print("DONE")
     return
@@ -82,9 +98,22 @@ def simulate_rf_combinations(feature_list, training_df, rf_analysis_folder, rf_t
                     drf_func.rf_feature_importance(rf_save_path, rf_analysis_folder, feature_list)
     print("DONE")
 
-# TODO: Tinker with feature set
-# Possibly look more into feature clusters, or use the ones I already made
-# Use this to implement a feature list combination generator
+def build_feature_set(feature_groups: list, base_feature_set: list, eliminated_feature_set: list):
+    fs = []
+    fs = base_feature_set.copy()
+    for fgroup in feature_groups:
+        # Remove any entries already in the feature set or eliminated
+        fgroup = list(set(fgroup) - set(base_feature_set) - set(eliminated_feature_set))
+        
+        if len(fgroup) > 0:
+            pickVariable = random.randint(0, 1)
+            # A feature will be chosen
+            if pickVariable == 1:
+                # Choose a random feature
+                feature = fgroup[random.randint(0, len(fgroup) - 1)]
+                fs.append(feature)
+
+    return fs
 
 def simulate_feature_sets(num_feature_sets: int):
     # For now, start with base features and pick features from the feature groups
@@ -101,19 +130,7 @@ def simulate_feature_sets(num_feature_sets: int):
     feature_sets = []
 
     for i in range(num_feature_sets):
-        fs = base_feature_set.copy()
-        for fgroup in feature_groups:
-            # Remove any entries already in the feature set or eliminated
-            fgroup = list(set(fgroup) - set(base_feature_set) - set(eliminated_feature_set))
-            
-            if len(fgroup) > 0:
-                pickVariable = random.randint(0, 1)
-                # A feature will be chosen
-                if pickVariable == 1:
-                    # Choose a random feature
-                    feature = fgroup[random.randint(0, len(fgroup) - 1)]
-                    fs.append(feature)
-        feature_sets.append(fs.copy())
+        feature_sets.append(build_base_feature_set(feature_groups, base_feature_set, eliminated_feature_set))
 
     return feature_sets
 
@@ -236,7 +253,10 @@ training_df = pd.read_csv(training_path)
 #     fs_num += 1
 
 # print(f"ALL DONE, it took {time.time}")
-simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
+#simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
+
+iterative_rf_build(training_df, analysis_folder, num_iterations=1)
+
 # training_path = "Random_Forest/RFtrainingUpdate.csv"
 # analysis_folder = "Random_Forest/test_data/"
 # training_df = pd.read_csv(training_path)
