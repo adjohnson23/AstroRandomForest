@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import joblib
 import numpy as np
@@ -73,27 +74,62 @@ def train_rf(training_df, feature_list, rf_save_path,
 
 
 # TODO: Make a version of rf_analysis which puts all data into a csv file instead
-
-def rf_csv_analysis(rf_save_path: str, csv_path: str, feature_list: list):
-    
-    return
+# This one will store the following metrics:
+# Forest Number: ID number of the random forest
+# Time: Date/Time in which the forest was grown and saved
+# ROC-AUC Score (All): Area under the curve (All = OG, Y2, & Y20)
+    # OG: Original testing dataset
+    # Y2: Year 2 testing dataset
+    # Y20: Year 2 testing dataset with more 0s
+# DtTPRf (All): TPR on first surpass of DTARPS TPR
+# DtFPRf (All): FPR on first surpass of DTARPS TPR
+# DtTPRl (All): TPR on last surpass of DTARPS FPR
+# DtFPRl (All): FPR on last surpass of DTARPS FPR
+# Add flexibility to add more columns (Append them to the end)
+# Instead of creating an analysis_data.txt file, put the data into the csv file
+# roc_thresholds files are still created
 
 # RF ANALYSIS FUNCTION
 # TODO: Figure out a more elegant/smart way to get a good feature list
 # 
 
-def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, dtarpsPlus: bool = False):
+# Helper function to write data to a txt file
+# Open the file and write the provided string into it
+def write_to_txt(rf_data_path: str, data: str):
+    with open(rf_data_path, 'a') as f:
+            return f.write(data)
+
+# Helper function to write data to a csv file
+# Open the csv file, check if the corresponding row/column exist.
+# If not, create them
+# Then, write the data into the csv file
+def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data: str):
+    if columnName not in csv_df.columns:
+        csv_df[columnName] = np.nan
+    csv_df.at[rowNum, columnName] = data
+    return
+
+def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", dtarpsPlus: bool = False):
     if not ensure_forest_exists(rf_save_path, rf_analysis_folder):
         print(f"Some files are missing. Aborting...")
         return
 
-    print("Analyzing random forest...")
+    if csv_mode:
+        print(f"Analyzing random forest. CSV mode selected")
+    else:
+        print(f"Analyzing random forest. TXT mode selected")
     
     # Load random forest and test dataset
     rf = joblib.load(os.path.join(rf_save_path, "random_forest.joblib"))
 
     # Indexer + datastructures to hold results
     file_ind = 0
+    file_suffix_ls = ['(OG)', '(Y2)', '(Y20)']
+    csv_df = []
+    # TODO: For now: CSV files needs to be made manually. Can I make a new one instead?
+    csv_df = pd.read_csv(csv_file)
+    row_num = len(csv_df)
+    print(f"The CSV currently has {row_num} forests in it.")
     fpr_ds = []
     tpr_ds = []
     thresholds_ds = []
@@ -101,8 +137,8 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     prec_ds = []
     recall_ds = []
 
-    for f in os.listdir(rf_analysis_folder):
-        testing_df = pd.read_csv(os.path.join(rf_analysis_folder, f))
+    for tf in os.listdir(rf_analysis_folder):
+        testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
         # Constrain dataframe to the feature list
         testing_df = testing_df[feature_list]
 
@@ -120,93 +156,93 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         y_pred_prob = rf.predict_proba(x_test)
 
         rf_data_file = os.path.join(rf_save_path, f"analysis_data{file_ind}.txt")
-        if (os.path.exists(rf_data_file)):
+        if (not csv_mode and os.path.exists(rf_data_file)):
             # Overwrite the existing analysis file
             print("Analysis file already exists, overwriting...")
             os.remove(rf_data_file)
 
         removeForest = False
-        with open(rf_data_file, 'w') as f:
-            print("Writing to analysis file...")
-            # As the metrics are found, they should be written into a txt file or saved as a csv
-            fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
-            roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
-            prec, recall, _ = precision_recall_curve(y_test, y_pred_prob[:, 1], pos_label=1)
+        print("Writing to analysis file...")
+        # As the metrics are found, they should be written into a txt file or saved as a csv
+        fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
+        roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
+        prec, recall, _ = precision_recall_curve(y_test, y_pred_prob[:, 1], pos_label=1)
 
-            # Save ROC values if the csv doesn't exist already
-            roc_df = pd.DataFrame({
-                'TPR': tpr,
-                'FPR': fpr,
-                'Threshold': thresholds
-            })
-            if not os.path.exists(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv')):
-                roc_df.to_csv(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv'), index=False)
-                chars_written = f.write(f"ROC_AUC score: {roc_auc}\n")
-            
-            # Add values to datastructures
-            fpr_ds.append(fpr)
-            tpr_ds.append(tpr)
-            thresholds_ds.append(thresholds)
-            roc_auc_ds.append(roc_auc)
-            prec_ds.append(prec)
-            recall_ds.append(recall)
-
-            # Write notable threshold values into the txt file
-            # If the file is the one used for DTARPS, use DTARPS thresholds, otherwise use set thresholds
-            # 1. First threshold where TPR > TPR of DTARPS1
-            # 2. Last threshold where FPR < FPR of DTARPS1
-            # 3+. Any thresholds where both 1 and 2 are met
-
-            if f.name == "RFtesting.csv":
-                dtarpsTPR = 0.9283
-                dtarpsFPR = 0.0037
-                dtarpsThreshold = 0.174
-                chars_written = f.write(f"\nNOTABLE THRESHOLDS\nComparing DTARPS performance: TPR {dtarpsTPR}, FPR {dtarpsFPR}, Threshold {dtarpsThreshold}\n")
-                # First condition
-                firstVals = roc_df[roc_df['TPR'] >= dtarpsTPR]
-                chars_written = f.write(f"First threshold that surprasses DTARPS TPR: {firstVals.values[0]}\n")
-
-                # Second condition
-                secondVals = roc_df[roc_df['FPR'] <= dtarpsFPR]
-                chars_written = f.write(f"Last threshold that surprasses DTARPS FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
-
-                # Finally any thresholds that meet both conditions
-                better_thresholds = secondVals[secondVals['TPR'] >= dtarpsTPR]
-                better_thresholds = better_thresholds.dropna()
-                if better_thresholds.size == 0:
-                    chars_written = f.write(f"No thresholds perform decisively better than DTARPS\n")
-                    removeForest = True
-                else:
-                    chars_written = f.write(f"DECISIVE THRESHOLDS\n")
-                    better_vals = better_thresholds.values
-                    for i in range(len(better_vals)):
-                        chars_written = f.write(f"Threshold {i}: {better_vals[i]}\n")
-            else:
-                thresholdTPR = 0.85
-                thresholdFPR = 0.005
-                chars_written = f.write(f"\nNOTABLE THRESHOLDS\nComparing general performance: TPR {thresholdTPR}, FPR {thresholdFPR}\n")
-                # First condition
-                firstVals = roc_df[roc_df['TPR'] >= thresholdTPR]
-                chars_written = f.write(f"First threshold that surprasses set TPR: {firstVals.values[0]}\n")
-
-                # Second condition
-                secondVals = roc_df[roc_df['FPR'] <= thresholdFPR]
-                chars_written = f.write(f"Last threshold that surprasses set FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
-
-                # Finally any thresholds that meet both conditions
-                better_thresholds = secondVals[secondVals['TPR'] >= thresholdTPR]
-                better_thresholds = better_thresholds.dropna()
-                if better_thresholds.size == 0:
-                    chars_written = f.write(f"No thresholds perform decisively better than set thresholds\n")
-                    removeForest = True
-                else:
-                    chars_written = f.write(f"DECISIVE THRESHOLDS\n")
-                    better_vals = better_thresholds.values
-                    for i in range(len(better_vals)):
-                        chars_written = f.write(f"Threshold {i}: {better_vals[i]}\n")
+        # Save ROC values if the csv doesn't exist already
+        roc_df = pd.DataFrame({
+            'TPR': tpr,
+            'FPR': fpr,
+            'Threshold': thresholds
+        })
+        if not os.path.exists(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv')):
+            roc_df.to_csv(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv'), index=False)
         
+        # Record timestamp
+        time = datetime.now()
+        if csv_mode:
+            write_to_df(csv_df, row_num, f"Time", f"{time}")
+            write_to_df(csv_df, row_num, f"ROC_AUC {file_suffix_ls[file_ind]}", roc_auc)
+        else:
+            write_to_txt(rf_data_file, f"Time grown: {time}\n")
+            write_to_txt(rf_data_file, f"ROC_AUC score: {roc_auc}\n")
+        
+        # Add values to datastructures
+        fpr_ds.append(fpr)
+        tpr_ds.append(tpr)
+        thresholds_ds.append(thresholds)
+        roc_auc_ds.append(roc_auc)
+        prec_ds.append(prec)
+        recall_ds.append(recall)
+
+        # Write notable threshold values into the txt file
+        # If the file is the one used for DTARPS, use DTARPS thresholds, otherwise use set thresholds
+        # 1. First threshold where TPR > TPR of DTARPS1
+        # 2. Last threshold where FPR < FPR of DTARPS1
+        # 3+. Any thresholds where both 1 and 2 are met
+
+        thresholdTPR = 0
+        thresholdFPR = 0
+
+        if tf == "RFtesting.csv":
+            thresholdTPR = 0.9283
+            thresholdFPR = 0.0037
+        else:
+            thresholdTPR = 0.85
+            thresholdFPR = 0.005
+        if not csv_mode:
+            write_to_txt(rf_data_file, f"\nNOTABLE THRESHOLDS\nComparing Threshold performance: TPR {thresholdTPR}, FPR {thresholdFPR}\n")
+        # First condition
+        firstVals = roc_df[roc_df['TPR'] >= thresholdTPR]
+        if csv_mode:
+            write_to_df(csv_df, row_num, f"DtTPRf {file_suffix_ls[file_ind]}", firstVals.values[0][0])
+            write_to_df(csv_df, row_num, f"DtFPRf {file_suffix_ls[file_ind]}", firstVals.values[0][1])
+        else:
+            write_to_txt(rf_data_file, f"First threshold that surprasses Threshold TPR: {firstVals.values[0]}\n")
+
+        # Second condition
+        secondVals = roc_df[roc_df['FPR'] <= thresholdFPR]
+        if csv_mode:
+            write_to_df(csv_df, row_num, f"DtTPRl {file_suffix_ls[file_ind]}", secondVals.values[len(secondVals.values) - 1][0])
+            write_to_df(csv_df, row_num, f"DtFPRl {file_suffix_ls[file_ind]}", secondVals.values[len(secondVals.values) - 1][1])
+        else:
+            write_to_txt(rf_data_file, f"Last threshold that surprasses Threshold FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
+
+        # Finally any thresholds that meet both conditions
+        # Only for txt files
+        if not csv_mode:
+            better_thresholds = secondVals[secondVals['TPR'] >= thresholdTPR]
+            better_thresholds = better_thresholds.dropna()
+            if better_thresholds.size == 0:
+                write_to_txt(rf_data_file, f"No thresholds perform decisively better than the threshold\n")
+                removeForest = True
+            else:
+                write_to_txt(rf_data_file, f"DECISIVE THRESHOLDS\n")
+                better_vals = better_thresholds.values
+                for i in range(len(better_vals)):
+                    write_to_txt(rf_data_file, f"Threshold {i}: {better_vals[i]}\n")
+            
         # This is the base analysis file to be looking for and whether it did better than DTARPS
-        if f.name == "RFtesting.csv":
+        if tf == "RFtesting.csv":
             # Only remove if forests worse than DTARPS are being filtered out
             if removeForest and dtarpsPlus:
                 print("Forest did not perform better than DTARPS: Scrapping")
@@ -215,6 +251,10 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
                 os.rmdir(rf_save_path)
                 return
         file_ind += 1
+
+    # Save the csv file if csv_mode is enabled
+    if csv_mode:
+        csv_df.to_csv(csv_file, index=False)
     
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.

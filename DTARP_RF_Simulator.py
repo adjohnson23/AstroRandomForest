@@ -32,27 +32,32 @@ import random, time
 
 # Adjustable things: K, score functions
 def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0):
-    # Begin with base feature set
-    feature_groups = generate_feature_clusters()
-    base_feature_set = build_base_feature_set()
+    for seed in rf_seeds:
+        for num_trees in rf_trees:
+            for criterion in rf_criterions:
+                # Begin with base feature set
+                feature_groups = generate_feature_clusters()
+                base_feature_set = build_base_feature_set()
 
-    # Grow a tree with it to establish a baseline
-    drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
-    
-    # Exploration phase: Two modes perhaps
-    # Mode 1: Don't select the same feature again until all features have been selected
-    # Mode 2: Repeat selection is fine (Implement this first)
+                # Grow a tree with it to establish a baseline
+                rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{fs_num}/"
+                drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
+                
+                # Exploration phase: Two modes perhaps
+                # Mode 1: Don't select the same feature again until all features have been selected
+                # Mode 2: Repeat selection is fine (Implement this first)
 
-    # Select a random number of features
+                # Select a random number of features
 
-    # Grow a forest
+                # Grow a forest
 
-    # Select K most important features using score mechanisms
+                # Select K most important features using score mechanisms
 
-    # Grow a forest to inspect the new baseline
+                # Grow a forest to inspect the new baseline
 
-    # Repeat
+                # Repeat
 
+    print("DONE")
     return
 
 # simulate_rf_combinations
@@ -72,7 +77,7 @@ def simulate_rf_combinations(feature_list, training_df, rf_analysis_folder, rf_t
                 print(f"Growing random forest with {num_trees} trees and criterion {criterion} with seed {seed}")
                 rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{fs_num}/"
                 drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
-                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, dtarpsPlus)
+                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, dtarpsPlus=dtarpsPlus, csv_mode=True, csv_file="Random_Forest/forest_analysis_data.csv")
                 if plot_fi:
                     drf_func.rf_feature_importance(rf_save_path, rf_analysis_folder, feature_list)
     print("DONE")
@@ -212,7 +217,7 @@ feature_list = ['TCF_period',
                 ]
 
 # Create simulation sets
-rf_trees = [20000]
+rf_trees = [10000]
 rf_criterions = ["log_loss"]
 rf_seeds = [42]
 
@@ -231,7 +236,7 @@ training_df = pd.read_csv(training_path)
 #     fs_num += 1
 
 # print(f"ALL DONE, it took {time.time}")
-simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 22, dtarpsPlus=True)
+simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
 # training_path = "Random_Forest/RFtrainingUpdate.csv"
 # analysis_folder = "Random_Forest/test_data/"
 # training_df = pd.read_csv(training_path)
