@@ -191,7 +191,17 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     recall_ds = []
 
     # Record name of the forest. Only run CSV analysis if this is a new forest.
+    forest_name = os.path.dirname(rf_save_path)
+    forest_name = os.path.basename(forest_name)
     
+    if "Forest Name" in csv_df.columns and forest_name in csv_df["Forest Name"]:
+        print(f"Forest {forest_name} has been previously analyzed, skipping analysis.")
+        return
+    else:
+        print(f"Forest {forest_name} is being analyzed.")
+        # You will get a deprecation warning here. This is because pd.Dataframe does not like str, it prefers the generic object type.
+        # However, there is no easy way to typecast the string here into an object, so this warning is ignored.
+        write_to_df(csv_df, row_num, "Forest Name", forest_name)
 
     for tf in os.listdir(rf_analysis_folder):
         testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
@@ -218,7 +228,6 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
             os.remove(rf_data_file)
 
         removeForest = False
-        print("Writing to analysis file...")
         # As the metrics are found, they should be written into a txt file or saved as a csv
         fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob[:, 1], pos_label=1)
         roc_auc = roc_auc_score(y_test, y_pred_prob[:, 1])
@@ -236,6 +245,8 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         # Record timestamp
         time = datetime.now()
         if csv_mode:
+            # You will get a deprecation warning here. This is because pd.Dataframe wants this to be cast as a datetime.
+            # The way to typecast it doesn't seem straightforward, hence this warning is ignored.
             write_to_df(csv_df, row_num, f"Time", time)
             write_to_df(csv_df, row_num, f"ROC_AUC {file_suffix_ls[file_ind]}", roc_auc)
         else:
