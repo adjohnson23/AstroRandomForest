@@ -156,7 +156,7 @@ def write_to_txt(rf_data_path: str, data: str):
 # Open the csv file, check if the corresponding row/column exist.
 # If not, create them
 # Then, write the data into the csv file
-def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data: str):
+def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data):
     if columnName not in csv_df.columns:
         csv_df[columnName] = np.nan
     csv_df.at[rowNum, columnName] = data
@@ -178,9 +178,9 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     # Indexer + datastructures to hold results
     file_ind = 0
     file_suffix_ls = ['(OG)', '(Y2)', '(Y20)']
-    csv_df = []
-    # TODO: For now: CSV files needs to be made manually. Can I make a new one instead?
-    csv_df = pd.read_csv(csv_file)
+    csv_df = pd.DataFrame()
+    if os.path.exists(csv_file):
+        csv_df = pd.read_csv(csv_file)
     row_num = len(csv_df)
     print(f"The CSV currently has {row_num} forests in it.")
     fpr_ds = []
@@ -189,6 +189,9 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     roc_auc_ds = []
     prec_ds = []
     recall_ds = []
+
+    # Record name of the forest. Only run CSV analysis if this is a new forest.
+    
 
     for tf in os.listdir(rf_analysis_folder):
         testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
@@ -229,11 +232,11 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         })
         if not os.path.exists(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv')):
             roc_df.to_csv(os.path.join(rf_save_path, f'roc_thresholds{file_ind}.csv'), index=False)
-        
+
         # Record timestamp
         time = datetime.now()
         if csv_mode:
-            write_to_df(csv_df, row_num, f"Time", f"{time}")
+            write_to_df(csv_df, row_num, f"Time", time)
             write_to_df(csv_df, row_num, f"ROC_AUC {file_suffix_ls[file_ind]}", roc_auc)
         else:
             write_to_txt(rf_data_file, f"Time grown: {time}\n")

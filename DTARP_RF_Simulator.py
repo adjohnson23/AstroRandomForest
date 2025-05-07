@@ -217,10 +217,6 @@ def findMissingFeatures(rf_test1_path: str, rf_test2_path: str):
 #                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
 # print(f"Creating random forest of feature list {feature_list}")
 
-# TODO
-# Currently, forests are being tested on a limited testing dataset, a subset of the year 1 TESS dataset.
-# Now that the year 2 TESS dataset has been retreived, the forests should also be evaluated on the year 2 TESS data.
-
 feature_list = ['TCF_period',
                 'TCF_mad',
                 'snr.transit',
@@ -262,9 +258,9 @@ training_df = pd.read_csv(training_path)
 #     fs_num += 1
 
 # print(f"ALL DONE, it took {time.time}")
-#simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
+simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
 
-iterative_rf_build(training_df, analysis_folder, num_iterations=10, num_forests_per_iter=20)
+#iterative_rf_build(training_df, analysis_folder, num_iterations=10, num_forests_per_iter=20)
 
 # training_path = "Random_Forest/RFtrainingUpdate.csv"
 # analysis_folder = "Random_Forest/test_data/"
