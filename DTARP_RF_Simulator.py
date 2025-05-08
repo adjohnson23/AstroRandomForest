@@ -71,7 +71,9 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                         # Select K most important features using score mechanisms
                         # For now, I set K to be equal to half the feature set size
                         k = math.floor(len(feature_set) / 2)
-                        base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, k=k)
+                        percent = 20
+                        base_feature_set = drf_func.select_TopPercentage(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, percent=percent)
+                        #base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, k=k)
                         # Make sure the Class variable remains for the test dataset
                         base_feature_set.append('Class')
                         print(f"RESULTING FEATURE SET: {base_feature_set}")

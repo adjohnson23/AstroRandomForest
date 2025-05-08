@@ -12,7 +12,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve
 from sklearn.inspection import permutation_importance
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.feature_selection import SelectKBest, SelectPercentile, f_classif
 from sklearn import set_config
 
 # Trains a random forest using the RandomForestClassifier from the scikit-learn library.
@@ -129,6 +129,31 @@ def write_featurecsv(feature_csv_path: str, feature_list: list, unified_list: li
     csv_df.to_csv(feature_csv_path, index=False)
     return
 
+# Unify the provided feature lists into one coherent feature list.
+# Note: This is NOT constrained by K. That is handled by the K function specifically.
+def unify_feature_sets(feature_lists, secondary_lists):
+    # Unify the results into one feature set.
+    # Start by taking all features agreed upon.
+    # From there, work down to get features until feature set has K features.
+    unified_fs = list(reduce(lambda x, y: set(x) & set(y), feature_lists))
+    print(f"Common features between them all: {unified_fs}")
+
+    # Append from common features in the secondary_lists
+    # Meant to be a subset of the feature lists that could add more features
+    sub_fs = list(reduce(lambda x, y: set(x) & set(y), secondary_lists))
+
+    # Append values until length = K or end of sub_fs
+    for i in range(len(sub_fs)):
+        if sub_fs[i] not in unified_fs:
+            unified_fs.append(sub_fs[i])
+
+    # Otherwise, simply append values from the first feature set
+    # y1_list = feature_lists[0]
+    # for i in range(len(y1_list)):
+    #     if y1_list[i] not in unified_fs:
+    #         unified_fs.append(y1_list[i])
+    return unified_fs
+
 def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_list: list, k: int):
     print("Selecting K features. Currently testing.")
     # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
@@ -161,32 +186,59 @@ def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_lis
         print(f"Features selected: {x_new.columns}")
         feature_lists.append(x_new.columns)
 
-    # Unify the results into one feature set.
-    # Start by taking all features agreed upon.
-    # From there, work down to get features until feature set has K features.
-    unified_fs = list(reduce(lambda x, y: set(x) & set(y), feature_lists))
-    print(f"Common features between them all: {unified_fs}")
-
-    # Append from common features in the y2 datasets
+    # Make secondary list consist of the year 2 datasets
     y2_lists = []
     y2_lists.append(feature_lists[1])
     y2_lists.append(feature_lists[2])
-    sub_fs = list(reduce(lambda x, y: set(x) & set(y), y2_lists))
+    unified_fs = unify_feature_sets(feature_lists, y2_lists)
+    # Constrain it to k features
+    unified_fs = unified_fs[0:max(k, len(unified_fs))]
 
-    # Append values until length = K or end of sub_fs
-    for i in range(len(sub_fs)):
-        if sub_fs[i] not in unified_fs:
-            if len(unified_fs) == k:
-                break
-            unified_fs.append(sub_fs[i])
+    print(f"Final feature list: {unified_fs}")
 
-    # Otherwise, simply append values from the first feature set
-    y1_list = feature_lists[0]
-    for i in range(len(y1_list)):
-        if y1_list[i] not in unified_fs:
-            if len(unified_fs) == k:
-                break
-            unified_fs.append(y1_list[i])
+    # When the final unified list is determined, write to the feature importance csv
+    write_featurecsv(feature_csv_path, feature_list, unified_fs)
+    return unified_fs
+
+def select_TopPercentage(rf_analysis_folder: str, feature_csv_path: str, feature_list: list, percent: float):
+    print("Selecting features above a percentage. Currently testing.")
+    # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
+    set_config(transform_output="pandas")
+
+    # Store resulting selected feature sets
+    feature_lists = []
+
+    for tf in os.listdir(rf_analysis_folder):
+        testing_df = pd.read_csv(os.path.join(rf_analysis_folder, tf))
+        # Constrain dataframe to the feature list
+        testing_df = testing_df[feature_list]
+
+        # Replace instances of infinity with NaN
+        testing_df = testing_df.mask(np.isinf(testing_df), np.nan)
+
+        # Drop any rows with NaN in them
+        testing_df = testing_df.dropna()
+
+        x_test = testing_df.drop(columns=['Class'])
+        y_test = testing_df['Class']
+        print(f"Loaded test data. Number of entries: {len(x_test)}")
+
+        # Perform the ANOVA feature test.
+        # Works best on numerical-input, categorical-output based sets.
+        print("Performing ANOVA feature selection test...")
+        print(f"Shapes: Training: {x_test.shape}, Testing: {y_test.shape}")
+        x_new = SelectPercentile(f_classif, percentile=percent).fit_transform(x_test, y_test)
+        #x_new = SelectKBest(f_classif, k=k).fit_transform(x_test, y_test)
+        print(f"Number of features: {len(x_new.columns)}")
+        print(f"Features selected: {x_new.columns}")
+        feature_lists.append(x_new.columns)
+
+    # Make secondary list consist of the year 2 datasets
+    y2_lists = []
+    y2_lists.append(feature_lists[1])
+    y2_lists.append(feature_lists[2])
+    unified_fs = unify_feature_sets(feature_lists, y2_lists)
+
     print(f"Final feature list: {unified_fs}")
 
     # When the final unified list is determined, write to the feature importance csv
