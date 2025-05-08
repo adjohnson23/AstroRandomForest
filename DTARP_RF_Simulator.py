@@ -240,9 +240,10 @@ def mergeDatasets(file_path1: str, file_path2: str, save: bool = False):
 
     df1 = pd.read_csv(file_path1)
     df2 = pd.read_csv(file_path2)
-    combined = pd.concat(df1, df2)
+    frames = [df1, df2]
+    combined = pd.concat(frames)
     if save:
-        combined.to_csv(os.path.splitext(file_path1)[0] + f"_{os.path.basename(file_path2)}merged.csv", index=False)
+        combined.to_csv(os.path.splitext(file_path1)[0] + f"_{os.path.splitext(os.path.basename(file_path2))[0]}Merged.csv", index=False)
     return combined
 
 feature_list = ['TCF_period',
@@ -280,8 +281,8 @@ training_path = "Random_Forest/RFtrainingUpdate.csv"
 analysis_folder = "Random_Forest/test_data/"
 training_df = pd.read_csv(training_path)
 
-split_path = "Random_Forest/test_data/RFYear2Testing.csv"
-trainTestSplit(split_path, 0.2, True)
+combine_path = "Random_Forest/test_data/RFYear2Testing_training0.2Split.csv"
+combined_df = mergeDatasets(training_path, combine_path, save=True)
 
 # feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit', 
 #                                   'TCF_mad', 'TCF_depthSNR', 'TCF_harmonic', 'sm.axis', 
