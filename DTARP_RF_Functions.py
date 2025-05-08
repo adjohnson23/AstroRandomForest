@@ -78,8 +78,58 @@ def train_rf(training_df, feature_list, rf_save_path,
         return -1
     return 1
 
+# TODO: Add feature metric data into a new csv file called feature_importance_analysis.csv
+# Metrics to write
+# Iterations: The number of forest iterations where this feature has made its appearance.
+# Times_Chosen: The number of times this feature was chosen to be part of the new base feature list.
+# Times_Discarded: The number of times this feature was discarded during feature selection.
+# Persistence_Rate: The rate in which the feature was kept (Times_Chosen / (Times_Chosen + Times_Discarded))
+# The idea: Update the csv on each iteration
+# Rows are features, columns are described above
+def write_featurecsv(feature_csv_path: str, feature_list: list, unified_list: list):
+    csv_df = pd.DataFrame()
+    if os.path.exists(feature_csv_path):
+        csv_df = pd.read_csv(feature_csv_path)
+    num_rows = len(csv_df)
+    print(f"The CSV currently has {num_rows} features documented. There are {len(feature_list)} features in total to document.")
 
-def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
+    # Iterate through the feature list
+    for feature in feature_list:
+        num_rows = len(csv_df)
+        # Is this feature new to the csv?
+        # METRICS
+        # Iterations = Iterations + 1, otherwise 0
+        # Times_Chosen = Times_Chosen + 1 if in unified_list, Times_Chosen if not, otherwise 1 or 0 if new
+        # Times_Discarded = Times_Discarded + 1 if not in unified list, Times_Discarded if it is, otherwise 0 or 1 if new
+        # Persistence_Rate = Update accordingly with other two metrics
+
+        if "Feature Name" not in csv_df.columns or not [f for f in csv_df["Feature Name"] if f == feature]:
+            rowNum = num_rows
+            write_to_df(csv_df, rowNum, "Feature Name", feature)
+            write_to_df(csv_df, rowNum, "Iterations", 1)
+            times_chosen = 0
+            times_discarded = 0
+        else:
+            rowNum = csv_df.index[csv_df["Feature Name"] == feature].tolist()[0]
+            iterations = csv_df.at[rowNum, "Iterations"]
+            iterations += 1
+            write_to_df(csv_df, rowNum, "Iterations", iterations)
+            times_chosen = csv_df.at[rowNum, "Times Chosen"]
+            times_discarded = csv_df.at[rowNum, "Times Discarded"]
+        if feature in unified_list:
+            times_chosen += 1
+        else:
+            times_discarded += 1
+        write_to_df(csv_df, rowNum, "Times Chosen", times_chosen)
+        write_to_df(csv_df, rowNum, "Times Discarded", times_discarded)
+        persistence_rate = times_chosen / (times_chosen + times_discarded)
+        write_to_df(csv_df, rowNum, "Persistence Rate", persistence_rate)
+
+    # Save the feature csv
+    csv_df.to_csv(feature_csv_path, index=False)
+    return
+
+def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_list: list, k: int):
     print("Selecting K features. Currently testing.")
     # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
     set_config(transform_output="pandas")
@@ -117,10 +167,6 @@ def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
     unified_fs = list(reduce(lambda x, y: set(x) & set(y), feature_lists))
     print(f"Common features between them all: {unified_fs}")
 
-    if len(unified_fs) == k:
-        print(f"Final feature list: {unified_fs}")
-        return unified_fs
-
     # Append from common features in the y2 datasets
     y2_lists = []
     y2_lists.append(feature_lists[1])
@@ -130,20 +176,21 @@ def select_Kfeatures(rf_analysis_folder: str, feature_list: list, k: int):
     # Append values until length = K or end of sub_fs
     for i in range(len(sub_fs)):
         if sub_fs[i] not in unified_fs:
-            unified_fs.append(sub_fs[i])
             if len(unified_fs) == k:
-                print(f"Final feature list: {unified_fs}")
-                return unified_fs
+                break
+            unified_fs.append(sub_fs[i])
 
     # Otherwise, simply append values from the first feature set
     y1_list = feature_lists[0]
     for i in range(len(y1_list)):
         if y1_list[i] not in unified_fs:
-            unified_fs.append(y1_list[i])
             if len(unified_fs) == k:
-                print(f"Final feature list: {unified_fs}")
-                return unified_fs
+                break
+            unified_fs.append(y1_list[i])
     print(f"Final feature list: {unified_fs}")
+
+    # When the final unified list is determined, write to the feature importance csv
+    write_featurecsv(feature_csv_path, feature_list, unified_fs)
     return unified_fs
 
 # Helper function to write data to a txt file
@@ -178,11 +225,13 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     # Indexer + datastructures to hold results
     file_ind = 0
     file_suffix_ls = ['(OG)', '(Y2)', '(Y20)']
+
     csv_df = pd.DataFrame()
     if os.path.exists(csv_file):
         csv_df = pd.read_csv(csv_file)
     row_num = len(csv_df)
     print(f"The CSV currently has {row_num} forests in it.")
+
     fpr_ds = []
     tpr_ds = []
     thresholds_ds = []
@@ -194,7 +243,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     forest_name = os.path.dirname(rf_save_path)
     forest_name = os.path.basename(forest_name)
     
-    if "Forest Name" in csv_df.columns and forest_name in csv_df["Forest Name"]:
+    if csv_mode and "Forest Name" in csv_df.columns and forest_name in csv_df["Forest Name"]:
         print(f"Forest {forest_name} has been previously analyzed, skipping analysis.")
         return
     else:

@@ -49,7 +49,7 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                     rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{combo_num}.{fs_num}/"
                     res = drf_func.train_rf(training_df, base_feature_set, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
                     if res != -1:
-                        drf_func.rf_analysis(rf_save_path, rf_analysis_folder, base_feature_set, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May5forest_analysis_data.csv")
+                        drf_func.rf_analysis(rf_save_path, rf_analysis_folder, base_feature_set, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May7forest_analysis_data.csv")
                     
                     # Exploration phase: Two modes perhaps
                     # Mode 1: Don't select the same feature again until all features have been selected
@@ -66,13 +66,12 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                         # Grow a forest
                         res = drf_func.train_rf(training_df, feature_set, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
                         if res != -1:
-                            drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_set, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May5forest_analysis_data.csv")
+                            drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_set, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May7forest_analysis_data.csv")
 
                         # Select K most important features using score mechanisms
                         # For now, I set K to be equal to half the feature set size
                         k = math.floor(len(feature_set) / 2)
-                        # TODO: Implement
-                        base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_set, k)
+                        base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, k=k)
                         # Make sure the Class variable remains for the test dataset
                         base_feature_set.append('Class')
                         print(f"RESULTING FEATURE SET: {base_feature_set}")
@@ -258,9 +257,9 @@ training_df = pd.read_csv(training_path)
 #     fs_num += 1
 
 # print(f"ALL DONE, it took {time.time}")
-simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
+#simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
 
-#iterative_rf_build(training_df, analysis_folder, num_iterations=10, num_forests_per_iter=20)
+iterative_rf_build(training_df, analysis_folder, num_iterations=1, num_forests_per_iter=2)
 
 # training_path = "Random_Forest/RFtrainingUpdate.csv"
 # analysis_folder = "Random_Forest/test_data/"
