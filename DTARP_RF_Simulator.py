@@ -1,6 +1,7 @@
 import pandas as pd
 import DTARP_RF_Functions as drf_func
-import random, time, math
+import random, time, math, os
+from sklearn.model_selection import train_test_split
 
 # Try the year 2 dataset
 # Could see what 
@@ -206,17 +207,43 @@ def findMissingFeatures(rf_test1_path: str, rf_test2_path: str):
     f1 = df1.columns
     f2 = df2.columns
     print(f"Dataframe 1 has {len(f1)} columns, dataframe 2 has {len(f2)} columns")
-    missing_columns = [col for col in f1 if col not in f2]
-    print(f"There are {len(missing_columns)} missing columns, being: {missing_columns}")
+    missing_columns1 = [col for col in f1 if col not in f2]
+    missing_columns2 = [col for col in f2 if col not in f1]
+    print(f"There are {len(missing_columns1)} only in f1, being: {missing_columns1}")
+    print(f"There are {len(missing_columns2)} only in f2, being: {missing_columns2}")
+    return missing_columns1 + missing_columns2
 
-# feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit', 
-#                                   'TCF_mad', 'TCF_depthSNR', 'TCF_harmonic', 'sm.axis', 
-#                                   'Redchisq.improv', 'Redchisq.lc', 'outer_range.lc', 
-#                                   'even.odd.p_value', 'Median_sd.diff', 
-#                                   'P_autocor.lc', 'Prob_autocor.resid', 
-#                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
-#                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
-# print(f"Creating random forest of feature list {feature_list}")
+# Split a file into a training and test dataset and save them as separate files.
+# The split is provided as a parameter (the size of the resulting test data set % wise).
+def trainTestSplit(file_path: str, test_size: float, save: bool = False):
+    df = pd.read_csv(file_path)
+    if test_size <= 0:
+        print("Test size is less than 1: entire dataset treated as a training dataset")
+        return df, None
+    if test_size >= 1:
+        print("Test size is larger than 1: entire dataset treated as a test dataset")
+        return None, df
+    df_train, df_test = train_test_split(df, test_size = test_size)
+    if save:
+        df_train.to_csv(os.path.splitext(file_path)[0] + f"_training{test_size}Split.csv", index=False)
+        df_test.to_csv(os.path.splitext(file_path)[0] + f"_testing{test_size}Split.csv", index=False)
+    print(f"Split the dataset into a training and test dataset ({1 - test_size}/{test_size} split).")
+    return df_train, df_test
+
+# Read two datasets, merge the dataframes, and save it as a new csv if enabled.
+def mergeDatasets(file_path1: str, file_path2: str, save: bool = False):
+    # Check that the dataframes are eligible to merge
+    diff = findMissingFeatures(file_path1, file_path2)
+    if len(diff) > 0:
+        print("The two datasets are incompatible for merging.")
+        return None
+
+    df1 = pd.read_csv(file_path1)
+    df2 = pd.read_csv(file_path2)
+    combined = pd.concat(df1, df2)
+    if save:
+        combined.to_csv(os.path.splitext(file_path1)[0] + f"_{os.path.basename(file_path2)}merged.csv", index=False)
+    return combined
 
 feature_list = ['TCF_period',
                 'TCF_mad',
@@ -253,6 +280,18 @@ training_path = "Random_Forest/RFtrainingUpdate.csv"
 analysis_folder = "Random_Forest/test_data/"
 training_df = pd.read_csv(training_path)
 
+split_path = "Random_Forest/test_data/RFYear2Testing.csv"
+trainTestSplit(split_path, 0.2, True)
+
+# feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit', 
+#                                   'TCF_mad', 'TCF_depthSNR', 'TCF_harmonic', 'sm.axis', 
+#                                   'Redchisq.improv', 'Redchisq.lc', 'outer_range.lc', 
+#                                   'even.odd.p_value', 'Median_sd.diff', 
+#                                   'P_autocor.lc', 'Prob_autocor.resid', 
+#                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
+#                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
+# print(f"Creating random forest of feature list {feature_list}")
+
 # fs_num = 0
 # for feature_list in feature_sets:
 #     simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, fs_num, dtarpsPlus=True)
@@ -261,7 +300,7 @@ training_df = pd.read_csv(training_path)
 # print(f"ALL DONE, it took {time.time}")
 #simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
 
-iterative_rf_build(training_df, analysis_folder, num_iterations=1, num_forests_per_iter=2)
+# iterative_rf_build(training_df, analysis_folder, num_iterations=1, num_forests_per_iter=2)
 
 # training_path = "Random_Forest/RFtrainingUpdate.csv"
 # analysis_folder = "Random_Forest/test_data/"

@@ -146,12 +146,7 @@ def unify_feature_sets(feature_lists, secondary_lists):
     for i in range(len(sub_fs)):
         if sub_fs[i] not in unified_fs:
             unified_fs.append(sub_fs[i])
-
-    # Otherwise, simply append values from the first feature set
-    # y1_list = feature_lists[0]
-    # for i in range(len(y1_list)):
-    #     if y1_list[i] not in unified_fs:
-    #         unified_fs.append(y1_list[i])
+    
     return unified_fs
 
 def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_list: list, k: int):
@@ -186,11 +181,14 @@ def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_lis
         print(f"Features selected: {x_new.columns}")
         feature_lists.append(x_new.columns)
 
-    # Make secondary list consist of the year 2 datasets
+    # Make secondary list consist of other two datasets
+    # MANUALLY SET
+    # -------------------------------------------------------------------
     y2_lists = []
     y2_lists.append(feature_lists[1])
     y2_lists.append(feature_lists[2])
     unified_fs = unify_feature_sets(feature_lists, y2_lists)
+    # -------------------------------------------------------------------
     # Constrain it to k features
     unified_fs = unified_fs[0:max(k, len(unified_fs))]
 
