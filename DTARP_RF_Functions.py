@@ -78,13 +78,17 @@ def train_rf(training_df, feature_list, rf_save_path,
         return -1
     return 1
 
-# TODO: Add feature metric data into a new csv file called feature_importance_analysis.csv
-# Metrics to write
+# Writes feature metrics into a specified csv path.
+# This function is particularly used when doing the iterative_rf_build algorithm.
+# PARAMETERS
+# feature_csv_path: The path to read/update/save feature metrics to
+# feature_list: The list of features that were selected for the last iteration.
+# unified_list: The list of features that were chosen for the next iteration.
+# METRICS WRITTEN
 # Iterations: The number of forest iterations where this feature has made its appearance.
 # Times_Chosen: The number of times this feature was chosen to be part of the new base feature list.
 # Times_Discarded: The number of times this feature was discarded during feature selection.
 # Persistence_Rate: The rate in which the feature was kept (Times_Chosen / (Times_Chosen + Times_Discarded))
-# The idea: Update the csv on each iteration
 # Rows are features, columns are described above
 def write_featurecsv(feature_csv_path: str, feature_list: list, unified_list: list):
     csv_df = pd.DataFrame()
@@ -130,7 +134,7 @@ def write_featurecsv(feature_csv_path: str, feature_list: list, unified_list: li
     return
 
 # Unify the provided feature lists into one coherent feature list.
-# Note: This is NOT constrained by K. That is handled by the K function specifically.
+# NOTE: This is NOT constrained by K. That is handled by the K function specifically.
 def unify_feature_sets(feature_lists, secondary_lists):
     # Unify the results into one feature set.
     # Start by taking all features agreed upon.
@@ -149,6 +153,9 @@ def unify_feature_sets(feature_lists, secondary_lists):
     
     return unified_fs
 
+# Algorithm to perform the ANOVA feature selection test and select the K best features from that algorithm (for each dataset).
+# K is specified as a parameter.
+# Lower down, individual selected feature sets are unified into one coherent feature list to be used.
 def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_list: list, k: int):
     print("Selecting K features. Currently testing.")
     # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
@@ -198,6 +205,9 @@ def select_Kfeatures(rf_analysis_folder: str, feature_csv_path: str, feature_lis
     write_featurecsv(feature_csv_path, feature_list, unified_fs)
     return unified_fs
 
+# Algorithm to perform the ANOVA feature selection test and select the features on the top percentile from that algorithm (for each dataset).
+# The percentile is specified as a parameter.
+# Lower down, individual selected feature sets are unified into one coherent feature list to be used.
 def select_TopPercentage(rf_analysis_folder: str, feature_csv_path: str, feature_list: list, percent: float):
     print("Selecting features above a percentage. Currently testing.")
     # Tell sklearn to preserve pandas dataframes so we can preserve the feature names
@@ -259,6 +269,7 @@ def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data):
     csv_df.at[rowNum, columnName] = data
     return
 
+# Perform random forest analysis. This function will write metrics into txt files (and a csv file if csv_mode is enabled).
 def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", dtarpsPlus: bool = False):
     if not ensure_forest_exists(rf_save_path, rf_analysis_folder):
         print(f"Some files are missing. Aborting...")
@@ -445,6 +456,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     plt.cla()
     plt.clf()
 
+# Plot the feature importance plot here.
 def rf_feature_importance(rf_save_path: str, rf_analysis_folder: str, feature_list: list):
     if (not ensure_forest_exists(rf_save_path, rf_analysis_folder)):
         print(f"Some required files missing. Aborting...")
