@@ -3,36 +3,21 @@ import DTARP_RF_Functions as drf_func
 import random, time, math, os
 from sklearn.model_selection import train_test_split
 
-# Try the year 2 dataset
-# Could see what 
-# Radius VS period (Y1 & Y2) to verify the planet types are consistent
-
-# TODO: Make a NEW recursive tree program
-# BRAINSTORMING: The goal to to build a feature list that provides the best results.
-# How do we cut this down?
-# Inputs: Features selected
-# Outputs: ROC for training + testing. ROC difference could be evaluated, looking for a value as close to 0 at possible to signify little to no overfitting.
-# Cites I have read
+# iterative_rf_build -----------------------------------------------------------------------
+# Defines an iterative random forest building program.
+# This program starts with the initial base feature list.
+# Randomly select additional features, grow a forest, and run a feature selection function (e.g. SelectK or SelectTopPercentile). Both use the ANOVA classification selection algorithm provided by sklearn.
+# Compile together a new base feature set from all test datasets.
+# Repeat for a number of forests specified by num_forests_per_iter.
+# Restart and do this once again for num_iterations.
+# rf_trees, rf_criterions, and rf_seeds can be given multiple values if hyperparameter tuning is desired.
+# feature_select_mode selects whether K selection is used (1) or percentile selection is used (2).
+#
+# Some useful articles to read more about feature selection
 # General Feature Selection Guide: https://machinelearningmastery.com/feature-selection-with-real-and-categorical-data/
 # sklearn doc on KSelect: https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.SelectKBest.html
-#
-# The Strategy: Filtering. I am somewhat doing this, although manually. The idea is to look at feature importance and use that to build the feature set.
-# Instead of keeping the base feature set constant between trees, select the K best features upon evaluation as the base feature set for the next forest.
-# Will need to calculate statistics to use to determine this.
-# ROC and ROC-diff should be good, but other statistics may be good too
-# 1. Start with base feature set
-# 2. Add a pseudo-random selection of features
-# 2. Grow a forest
-# 3. Select the K most important features based on statistics
-# 4. Grow another forest with only those features
-# 5. Repeat steps 2-5 X number of times specified by the user.
-# What needs to be figuring out: The scoring functions with which to choose the K best features
-# Some scoring functions to try: chi2, f_classif, mutual_info_classif
-# If I can combine results from multiple of the test datasets, that would be good too
-# Perhaps I make my own custom scoring functions too
 
-# Adjustable things: K, score functions
-def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], num_iterations=5, num_forests_per_iter=20):
+def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], num_iterations=5, num_forests_per_iter=20, feature_select_mode=1):
     fs_num = 0
     combo_num = 0
     for seed in rf_seeds:
@@ -73,8 +58,10 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                         # For now, I set K to be equal to half the feature set size
                         k = math.floor(len(feature_set) / 2)
                         percent = 20
-                        base_feature_set = drf_func.select_TopPercentage(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, percent=percent)
-                        #base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, k=k)
+                        if feature_select_mode == 2:
+                            base_feature_set = drf_func.select_TopPercentage(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, percent=percent)
+                        else:
+                            base_feature_set = drf_func.select_Kfeatures(rf_analysis_folder, feature_csv_path="Random_Forest/May7feature_analysis_data.csv", feature_list=feature_set, k=k)
                         # Make sure the Class variable remains for the test dataset
                         base_feature_set.append('Class')
                         print(f"RESULTING FEATURE SET: {base_feature_set}")
@@ -87,8 +74,9 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
     print("DONE")
     return
 
-# simulate_rf_combinations
-# Simulate a set of random forests based on provided arguments.
+# simulate_rf_combinations -----------------------------------------------------------------------------------------
+# Simulate a set of random forests based on provided arguments. 
+# This is mainly used for hyperparameter tuning purposes once a desired feature set is found.
 # Parameters
 # feature_list: A list of features to simulate random forests on.
 # rf_trees: A list of the number of trees to simulate.
@@ -126,12 +114,12 @@ def build_feature_set(feature_groups: list, base_feature_set: list, eliminated_f
 
     return fs
 
+# simulate_feature_sets --------------------------------------------------------------------------------
+# Starting from the base feature set, generate feature sets equal to the number specified by num_feature_sets.
+# Feature sets are generated randomly and independently of one another.
+# For each feature group, 50/50 pick one random variable from that group. DO NOT include duplicate variables already in the feature set.
+# This strategy is susceptible to duplicate feature sets.
 def simulate_feature_sets(num_feature_sets: int):
-    # For now, start with base features and pick features from the feature groups
-    # This is a mostly random picker. Given a number, generate that many random feature sets. 
-    # For each group, 50/50 pick one random variable from that group. DO NOT include duplicate variables already in the feature set.
-    # This strategy is susceptible to duplicate feature sets.
-    
     # Build the base feature set and feature groups
     feature_groups = generate_feature_clusters()
     base_feature_set = build_base_feature_set()
@@ -145,9 +133,12 @@ def simulate_feature_sets(num_feature_sets: int):
 
     return feature_sets
 
+# HELPER FUNCTIONS --------------------------------------------------------------------------------------------------------
 # Builds the base feature set by obtaining all variables that should definitely be included.
-def build_base_feature_set():
-    feature_path = "feature_list.csv"
+# NOTE: This function relies on a csv file called "feature_list.csv" on the top level (this can be reconfigured by the parameter).
+# Make sure this csv file includes two columns: 'Var' and 'Include' corresponding to features and whether to include them.
+# The base feature set is formed from all variables with a "YES" label.
+def build_base_feature_set(feature_path = "feature_list.csv"):
     feature_df = pd.read_csv(feature_path)
     feature_df = feature_df[feature_df['Include'] == "YES"]
     # Also need to add the "Class" variable for the classification label
@@ -157,7 +148,12 @@ def build_base_feature_set():
 
 # Load the data file and group features that are highly correlated with one another.
 # Return a list of the thread clusters, which will form the basis of building a feature list.
-def generate_feature_clusters():
+# NOTE: This function relies on a csv file called "feature_list.csv" on the top level (this can be reconfigured by the parameter).
+# Make sure this csv file includes two columns: 'Var' and 'Include' corresponding to features and whether to include them.
+# You should probably use the SAME csv for generating the feature clusters and building the base feature set (above).
+# Excluding "NO" labels, there should be a third column called 'Group' in which you can manually group the features.
+# TODO: In the future, if this column is NOT included, run a automated correlation algorithm to generate feature clusters.
+def generate_feature_clusters(feature_path = "feature_list.csv"):
     # Remove features that WONT be used
     feature_path = "feature_list.csv"
     feature_df = pd.read_csv(feature_path)
@@ -173,14 +169,15 @@ def generate_feature_clusters():
     print(f"The following feature groups were formed: {feature_groups}")
     return feature_groups
 
-def addExtraColumns():
-    training_path = "Random_Forest/RFtraining.csv"
-    testing_path = "Random_Forest/test_data/RFtesting.csv"
-
+# This function was used to add some missing columns to some of the dataframes.
+# These updated dataframes are then saved.
+# Algorithms for calculating the new columns were provided by Dr. Melton.
+# NOTE: Csv paths have default values, but can be reconfigured.
+def addExtraColumns(training_path = "Random_Forest/RFtraining.csv", testing_path = "Random_Forest/test_data/RFtesting.csv"):
     training_df = pd.read_csv(training_path)
     testing_df = pd.read_csv(testing_path)
 
-    # Add some extra columns to the dataframes
+    # Add some extra columns that may be missing to the dataframes
     # Training
     training_df['IQR.improv'] = training_df['IQR.resid'] / training_df['IQR.lc']
     training_df['Redchisq.improv'] = training_df['Redchisq.resid'] / training_df['Redchisq.lc']
@@ -199,6 +196,8 @@ def addExtraColumns():
     training_df.to_csv("Random_Forest/RFtrainingUpdate.csv", index=False)
     testing_df.to_csv("Random_Forest/test_data/RFtestingUpdate.csv", index=False)
 
+# This function, given two paths to dataframes, determines columns that're not in both dataframes.
+# This function can be used to check if two dataframes are compatible for merging together.
 def findMissingFeatures(rf_test1_path: str, rf_test2_path: str):
     df1 = pd.read_csv(rf_test1_path)
     df2 = pd.read_csv(rf_test2_path)
@@ -246,6 +245,7 @@ def mergeDatasets(file_path1: str, file_path2: str, save: bool = False):
         combined.to_csv(os.path.splitext(file_path1)[0] + f"_{os.path.splitext(os.path.basename(file_path2))[0]}Merged.csv", index=False)
     return combined
 
+# EXECUTED CODE ------------------------------------------------------------------------------------------------------
 feature_list = ['TCF_period',
                 'TCF_mad',
                 'snr.transit',
@@ -283,42 +283,3 @@ training_df = pd.read_csv(training_path)
 
 combine_path = "Random_Forest/test_data/RFYear2Testing_training0.2Split.csv"
 combined_df = mergeDatasets(training_path, combine_path, save=True)
-
-# feature_list = ['tic_Radius', 'tic_eTmag', 'TCF_power', 'snr.transit', 
-#                                   'TCF_mad', 'TCF_depthSNR', 'TCF_harmonic', 'sm.axis', 
-#                                   'Redchisq.improv', 'Redchisq.lc', 'outer_range.lc', 
-#                                   'even.odd.p_value', 'Median_sd.diff', 
-#                                   'P_autocor.lc', 'Prob_autocor.resid', 
-#                                   'P_norm.improv', 'P_norm.lc', 'P_trend.improv', 
-#                                   'P_trend.lc', 'Prob_trend.resid', 'trans.p_value', 'TCF_period', 'Class']
-# print(f"Creating random forest of feature list {feature_list}")
-
-# fs_num = 0
-# for feature_list in feature_sets:
-#     simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, fs_num, dtarpsPlus=True)
-#     fs_num += 1
-
-# print(f"ALL DONE, it took {time.time}")
-#simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 20, dtarpsPlus=True)
-
-# iterative_rf_build(training_df, analysis_folder, num_iterations=1, num_forests_per_iter=2)
-
-# training_path = "Random_Forest/RFtrainingUpdate.csv"
-# analysis_folder = "Random_Forest/test_data/"
-# training_df = pd.read_csv(training_path)
-# simulate_rf_combinations(feature_list, training_df, analysis_folder, rf_trees, rf_criterions, rf_seeds, 13, plot_fi=False, dtarpsPlus=True)
-
-# testing_path1 = "Random_Forest/test_data/year2_testing.csv"
-# testing_path2 = "Random_Forest/test_data/year2_testing_with_large_zero_class.csv"
-
-# testing_df1 = pd.read_csv(testing_path1)
-# testing_df2 = pd.read_csv(testing_path2)
-
-# # Add some extra columns to the dataframes
-# # Note, this is in Jupiter radii, so need to multiply by the solar to jupiter radii ratio
-# testing_df1['planet_rad_tcf'] = (testing_df1['TCF_depth'] ** 0.5) * testing_df1['tic_Radius'] * 9.73116
-# testing_df2['planet_rad_tcf'] = (testing_df2['TCF_depth'] ** 0.5) * testing_df2['tic_Radius'] * 9.73116
-
-# # Save the datasets as csv files
-# testing_df1.to_csv("Random_Forest/test_data/RFYear2Testing.csv", index=False)
-# testing_df2.to_csv("Random_Forest/test_data/RFYear2ZerosTesting.csv", index=False)
