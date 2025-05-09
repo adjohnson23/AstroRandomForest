@@ -269,7 +269,7 @@ def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data):
     return
 
 # Perform random forest analysis. This function will write metrics into txt files (and a csv file if csv_mode is enabled).
-def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", dtarpsPlus: bool = False):
+def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", dtarpsPlus: bool = False, keepForest: bool = False):
     if not ensure_forest_exists(rf_save_path, rf_analysis_folder):
         print(f"Some files are missing. Aborting...")
         return
@@ -426,7 +426,13 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
                     os.remove(os.path.join(rf_save_path, f))
                 os.rmdir(rf_save_path)
                 return
+            
         file_ind += 1
+    
+    # If the forest is not to be kept, remove it at the end
+    if not keepForest:
+        print("Forest not being stored to save space.")
+        os.remove(os.path.join(rf_save_path, "random_forest.joblib"))
 
     # Save the csv file if csv_mode is enabled
     if csv_mode:
