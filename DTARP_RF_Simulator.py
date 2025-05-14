@@ -27,7 +27,8 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                     print(f"Beginning interative rf build number {combo_num}.")
                     # Begin with base feature set
                     feature_groups = generate_feature_clusters()
-                    base_feature_set = build_base_feature_set()
+                    #base_feature_set = build_base_feature_set()
+                    base_feature_set = ['Folded_AD', 'frac_dur', 'LOESS_mnsnr', 'P_norm.lc']
                     eliminated_feature_set = [] # TODO: Not using rn, but make use of it later
 
                     print("Building base forest.")
@@ -45,7 +46,7 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                     for forest in range(num_forests_per_iter):
                         fs_num += 1
                         # Select a random number of features
-                        feature_set = build_feature_set(feature_groups, base_feature_set, eliminated_feature_set)
+                        feature_set = build_feature_set_v2(feature_groups, base_feature_set)
                         print(f"The feature set consists of {feature_set}")
 
                         rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{combo_num}.{fs_num}/"
@@ -111,6 +112,22 @@ def build_feature_set(feature_groups: list, base_feature_set: list, eliminated_f
                 # Choose a random feature
                 feature = fgroup[random.randint(0, len(fgroup) - 1)]
                 fs.append(feature)
+
+    return fs
+
+# The feature set is currently one list
+# TODO: Generate feature clusters from it to then use the method above)
+def build_feature_set_v2(fgroup: list, base_feature_set: list):
+    fs = []
+    fs = base_feature_set.copy()
+    fgroup = list(set(fgroup) - set(base_feature_set))
+    
+    for feature in fgroup:
+        # Each feature has a 25% chance of being chosen
+        pickVariable = random.randint(0, 1)
+        # The feature will be chosen
+        if pickVariable == 1:
+            fs.append(feature)
 
     return fs
 
