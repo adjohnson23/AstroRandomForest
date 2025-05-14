@@ -246,7 +246,7 @@ def mergeDatasets(file_path1: str, file_path2: str, save: bool = False):
     return combined
 
 # EXECUTED CODE ------------------------------------------------------------------------------------------------------
-feature_list = ['TCF_period',
+feature_list_og = ['TCF_period',
                 'TCF_mad',
                 'snr.transit',
                 'planet_rad_tcf',
@@ -267,6 +267,43 @@ feature_list = ['TCF_period',
                 'trans.p_value'
                 ]
 
+feature_list = ['Folded_AD',
+                'frac_dur',
+                'IQR.diff',
+                'IQR.improv',
+                'IQR.lc',
+                'IQR.diff',
+                'IQR.improv',
+                'IQR.lc',
+                'IQR.resid',
+                'LOESS_mnsnr',
+                'LOESSpeaks_sd',
+                'LOESSS_sdsnr',
+                'Max.resid',
+                'min.lc',
+                'NOM.lc',
+                'P_autocor.lc',
+                'P_norm.lc',
+                'POM.diff',
+                'Prob_autocor.resid',
+                'Prob_norm.resid',
+                'quantiles.diff.01',
+                'quantiles.diff.10',
+                'quantiles.diff.90',
+                'quantiles.diff.99',
+                'quantiles.resid.10',
+                'quantiles.resid.90',
+                'quantiles.resid.99',
+                'skew.lc',
+                'sm.axis',
+                'snr.transit',
+                'TCF_depthSNR',
+                'TCF_period',
+                'TCF_phase',
+                'TCFpeaks_sd',
+                'tic_Radius',
+                'trans.p_value']
+
 # Create simulation sets
 rf_trees = [10000]
 rf_criterions = ["log_loss"]
@@ -282,3 +319,4 @@ analysis_folder = "Random_Forest/test_data/"
 training_df = pd.read_csv(training_path)
 
 simulate_rf_combinations(feature_list, training_df, analysis_folder)
+
