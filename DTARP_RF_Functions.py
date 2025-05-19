@@ -269,11 +269,10 @@ def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data):
     return
 
 # Perform random forest analysis. This function will write metrics into txt files (and a csv file if csv_mode is enabled).
-def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", dtarpsPlus: bool = False, keepForest: bool = False):
+def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", keepForest: bool = False):
     if not ensure_forest_exists(rf_save_path, rf_analysis_folder):
         print(f"Some files are missing. Aborting...")
         return
-
     if csv_mode:
         print(f"Analyzing random forest. CSV mode selected")
     else:
@@ -282,15 +281,14 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     # Load random forest and test dataset
     rf = joblib.load(os.path.join(rf_save_path, "random_forest.joblib"))
 
-    # Indexer + datastructures to hold results
+    # Index through the list of test datasets.
+    # File index is tracked to save unique result file names.
     file_ind = 0
-    file_suffix_ls = ['(OG)', '(Y2)', '(Y20)']
 
     csv_df = pd.DataFrame()
     if os.path.exists(csv_file):
         csv_df = pd.read_csv(csv_file)
     row_num = len(csv_df)
-    print(f"The CSV currently has {row_num} forests in it.")
 
     fpr_ds = []
     tpr_ds = []
@@ -306,7 +304,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     if csv_mode and "Forest Name" in csv_df.columns and forest_name in csv_df["Forest Name"]:
         print(f"Forest {forest_name} has been previously analyzed, skipping analysis.")
         return
-    else:
+    elif csv_mode:
         print(f"Forest {forest_name} is being analyzed.")
         # You will get a deprecation warning here. This is because pd.Dataframe does not like str, it prefers the generic object type.
         # However, there is no easy way to typecast the string here into an object, so this warning is ignored.
@@ -329,12 +327,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
 
         # Make predictions
         y_pred_prob = rf.predict_proba(x_test)
-
-        rf_data_file = os.path.join(rf_save_path, f"analysis_data{file_ind}.txt")
-        if (not csv_mode and os.path.exists(rf_data_file)):
-            # Overwrite the existing analysis file
-            print("Analysis file already exists, overwriting...")
-            os.remove(rf_data_file)
+        testing_df[f"{forest_name}"] = y_pred_prob
 
         removeForest = False
         # As the metrics are found, they should be written into a txt file or saved as a csv
@@ -357,10 +350,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
             # You will get a deprecation warning here. This is because pd.Dataframe wants this to be cast as a datetime.
             # The way to typecast it doesn't seem straightforward, hence this warning is ignored.
             write_to_df(csv_df, row_num, f"Time", time)
-            write_to_df(csv_df, row_num, f"ROC_AUC {file_suffix_ls[file_ind]}", roc_auc)
-        else:
-            write_to_txt(rf_data_file, f"Time grown: {time}\n")
-            write_to_txt(rf_data_file, f"ROC_AUC score: {roc_auc}\n")
+            write_to_df(csv_df, row_num, f"ROC_AUC {tf}", roc_auc)
 
         # Add values to datastructures
         fpr_ds.append(fpr)
@@ -370,62 +360,24 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         prec_ds.append(prec)
         recall_ds.append(recall)
 
-        # Write notable threshold values into the txt file
-        # If the file is the one used for DTARPS, use DTARPS thresholds, otherwise use set thresholds
-        # 1. First threshold where TPR > TPR of DTARPS1
-        # 2. Last threshold where FPR < FPR of DTARPS1
-        # 3+. Any thresholds where both 1 and 2 are met
+        # Search for notable thresholds. 
 
         thresholdTPR = 0
         thresholdFPR = 0
 
-        if tf == "RFtesting.csv":
-            thresholdTPR = 0.9283
-            thresholdFPR = 0.0037
-        else:
-            thresholdTPR = 0.85
-            thresholdFPR = 0.005
-        if not csv_mode:
-            write_to_txt(rf_data_file, f"\nNOTABLE THRESHOLDS\nComparing Threshold performance: TPR {thresholdTPR}, FPR {thresholdFPR}\n")
+        thresholdTPR = 0.9283
+        thresholdFPR = 0.0037
         # First condition
         firstVals = roc_df[roc_df['TPR'] >= thresholdTPR]
         if csv_mode:
-            write_to_df(csv_df, row_num, f"DtTPRf {file_suffix_ls[file_ind]}", firstVals.values[0][0])
-            write_to_df(csv_df, row_num, f"DtFPRf {file_suffix_ls[file_ind]}", firstVals.values[0][1])
-        else:
-            write_to_txt(rf_data_file, f"First threshold that surprasses Threshold TPR: {firstVals.values[0]}\n")
+            write_to_df(csv_df, row_num, f"DtTPRf {tf}", firstVals.values[0][0])
+            write_to_df(csv_df, row_num, f"DtFPRf {tf}", firstVals.values[0][1])
 
         # Second condition
         secondVals = roc_df[roc_df['FPR'] <= thresholdFPR]
         if csv_mode:
-            write_to_df(csv_df, row_num, f"DtTPRl {file_suffix_ls[file_ind]}", secondVals.values[len(secondVals.values) - 1][0])
-            write_to_df(csv_df, row_num, f"DtFPRl {file_suffix_ls[file_ind]}", secondVals.values[len(secondVals.values) - 1][1])
-        else:
-            write_to_txt(rf_data_file, f"Last threshold that surprasses Threshold FPR: {secondVals.values[len(secondVals.values) - 1]}\n")
-
-        # Finally any thresholds that meet both conditions
-        # Only for txt files
-        if not csv_mode:
-            better_thresholds = secondVals[secondVals['TPR'] >= thresholdTPR]
-            better_thresholds = better_thresholds.dropna()
-            if better_thresholds.size == 0:
-                write_to_txt(rf_data_file, f"No thresholds perform decisively better than the threshold\n")
-                removeForest = True
-            else:
-                write_to_txt(rf_data_file, f"DECISIVE THRESHOLDS\n")
-                better_vals = better_thresholds.values
-                for i in range(len(better_vals)):
-                    write_to_txt(rf_data_file, f"Threshold {i}: {better_vals[i]}\n")
-            
-        # This is the base analysis file to be looking for and whether it did better than DTARPS
-        if tf == "RFtesting.csv":
-            # Only remove if forests worse than DTARPS are being filtered out
-            if removeForest and dtarpsPlus:
-                print("Forest did not perform better than DTARPS: Scrapping")
-                for f in os.listdir(rf_save_path):
-                    os.remove(os.path.join(rf_save_path, f))
-                os.rmdir(rf_save_path)
-                return
+            write_to_df(csv_df, row_num, f"DtTPRl {tf}", secondVals.values[len(secondVals.values) - 1][0])
+            write_to_df(csv_df, row_num, f"DtFPRl {tf}", secondVals.values[len(secondVals.values) - 1][1])
             
         file_ind += 1
     
@@ -437,6 +389,12 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     # Save the csv file if csv_mode is enabled
     if csv_mode:
         csv_df.to_csv(csv_file, index=False)
+
+    # Save the feature list as a csv file, this is so the user doesn't need to remember what features were used every time.
+    feature_df = pd.DataFrame({
+        'Feature name': feature_list
+    })
+    feature_df.to_csv(os.path.join(rf_save_path, f'feature_list{file_ind}.csv'), index=False)
     
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
@@ -457,6 +415,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     # Show grids for plot
     plt.tight_layout()
     # Uncomment for debugging purposes: comment to prevent program interrupt
+    #plt.show()
     plt.savefig(os.path.join(rf_save_path, "ROC_curve.png"))
     plt.cla()
     plt.clf()
@@ -519,3 +478,4 @@ def ensure_forest_exists(rf_save_path: str, rf_analysis_folder: str) -> bool:
         print(f"Analysis folder provided, but no analysis files within it.")
         return False
     return True
+    

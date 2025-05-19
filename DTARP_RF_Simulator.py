@@ -36,7 +36,7 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                     rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{combo_num}.{fs_num}/"
                     res = drf_func.train_rf(training_df, base_feature_set, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
                     if res != -1:
-                        drf_func.rf_analysis(rf_save_path, rf_analysis_folder, base_feature_set, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May7forest_analysis_data.csv", keepForest=keep_forests)
+                        drf_func.rf_analysis(rf_save_path, rf_analysis_folder, base_feature_set, csv_mode=True, csv_file="Random_Forest/May7forest_analysis_data.csv", keepForest=keep_forests)
                     
                     # Exploration phase: Two modes perhaps
                     # Mode 1: Don't select the same feature again until all features have been selected
@@ -53,7 +53,7 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
                         # Grow a forest
                         res = drf_func.train_rf(training_df, feature_set, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
                         if res != -1:
-                            drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_set, dtarpsPlus=True, csv_mode=True, csv_file="Random_Forest/May7forest_analysis_data.csv")
+                            drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_set, csv_mode=True, csv_file="Random_Forest/May7forest_analysis_data.csv")
 
                         # Select K most important features using score mechanisms
                         # For now, I set K to be equal to half the feature set size
@@ -85,15 +85,14 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
 # rf_seeds: A list of seeds to simulate.
 # fs_num: An identifier for a feature set being passed in. By default, this is zero.
 # plot_fi: Whether to plot the feature importance plot for the forest.
-# dtarpsPlus: Whether to save all forests or only forests that surpass DTARPS-1 performance.
-def simulate_rf_combinations(feature_list, training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0, plot_fi=False, dtarpsPlus=False, keep_forests=False):
+def simulate_rf_combinations(feature_list, training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0, plot_fi=False, keep_forests=False):
     for seed in rf_seeds:
         for num_trees in rf_trees:
             for criterion in rf_criterions:
                 print(f"Growing random forest with {num_trees} trees and criterion {criterion} with seed {seed}")
                 rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{fs_num}/"
                 drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
-                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, dtarpsPlus=dtarpsPlus, csv_mode=True, csv_file="Random_Forest/forest_analysis_data.csv", keepForest=keep_forests)
+                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, csv_mode=True, csv_file="Random_Forest/forest_analysis_data.csv", keepForest=keep_forests)
                 if plot_fi:
                     drf_func.rf_feature_importance(rf_save_path, rf_analysis_folder, feature_list)
     print("DONE")
