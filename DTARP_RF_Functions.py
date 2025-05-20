@@ -332,7 +332,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
 
         # Save the dataframe if set to do so
         if keep_predictions:
-            testing_df.to_csv(os.path.join(rf_save_path, f"Predicted{tf}"))
+            testing_df.to_csv(os.path.join(rf_save_path, f"Predicted{tf}"), index=False)
 
         removeForest = False
         # As the metrics are found, they should be written into a txt file or saved as a csv

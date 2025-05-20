@@ -61,13 +61,25 @@ def init_data_analyzer_tool():
                     print("feature -a : Analyze ALL features.")
                     print("feature -f <eligible feature> : Analyze the selected feature.")
                 elif command[1] == "-a":
-                    print("Analyzing all features. Not yet implemented")
+                    print("Analyzing all available features.")
+                    for f in x_df.columns:
+                        analyze_feature(df, f)
                 elif command[1] == "-f":
                     if command[2] in x_df.columns:
                         print(f"Analyzing feature {command[2]}.")
                         analyze_feature(df, command[2])
                     else:
                         print(f"Feature {command[2]} not recognized in dataset. Please enter a valid feature or check available features with the command >feature")
+                elif command[1] == "-c":
+                    if len(command) != 5:
+                        print(f"Invalid number of arguments provided. Please provide two features to compare and a threshold.")
+                    elif command[2] not in x_df.columns:
+                        print(f"Feature {command[2]} not recognized in dataset. Please enter a valid feature or check available features with the command >feature")
+                    elif command[3] not in x_df.columns:
+                        print(f"Feature {command[3]} not recognized in dataset. Please enter a valid feature or check available features with the command >feature")
+                    else:
+                        print(f"Comparing {command[2]} to {command[3]}")
+                        compare_two_features(df, command[2], command[3], float(command[4]))
                 else:
                     print("Command not recognized. Type >feature -h for help.")
             else:
@@ -84,7 +96,6 @@ def list_features(df: pd.DataFrame):
 # It also colors in green dots for positive cases and red dots for negative ones to paint a better picture of the spread.
 def analyze_feature(df: pd.DataFrame, f: str):
     # Divide datasets into valid and invalid exoplanets
-    # Remove non-feature columns
     df_valid = df[df['Class'] == 1]
     df_invalid = df[df['Class'] == 0]
 
@@ -97,6 +108,35 @@ def analyze_feature(df: pd.DataFrame, f: str):
     plt.xlabel(f"{f}")
     plt.ylabel("Predicted Class")
     plt.title(f"Analyzing feature {f}")
+
+    # Show the plot
+    plt.show()
+    return
+
+# Quite similar to the function above, but instead two different features are being compared to one another.
+def compare_two_features(df: pd.DataFrame, f1: str, f2: str, threshold: float):
+    # Divide datasets into TP, FP, TN, and FN cases
+    df_valid = df[df['Class'] == 1]
+    df_invalid = df[df['Class'] == 0]
+
+    df_tpr = df_valid[df_valid['Predicted Class'] >= threshold]
+    df_fpr = df_valid[df_valid['Predicted Class'] < threshold]
+
+    df_tnr = df_invalid[df_invalid['Predicted Class'] < threshold]
+    df_fnr = df_invalid[df_invalid['Predicted Class'] >= threshold]
+
+    # Plot the scatterplot
+    plt.figure(figsize=(6,6))
+
+    # Plot classified planets in green and classified nonplanets in red
+    plt.scatter(df_tpr[f1], df_tpr[f2], label=f"Identified Exoplanets (TPR, {len(df_tpr)})", s=10)
+    plt.scatter(df_fpr[f1], df_fpr[f2], label=f"Misidentified Exoplanets (FPR, {len(df_fpr)})", s=10)
+    plt.scatter(df_tnr[f1], df_tnr[f2], label=f"Identified Nonexoplanets (TNR, {len(df_tnr)})", s=10)
+    plt.scatter(df_fnr[f1], df_fnr[f2], label=f"Misidentified Nonexoplanets (FNR, {len(df_fnr)})", s=10)
+    plt.legend()
+    plt.xlabel(f"{f1}")
+    plt.ylabel(f"{f2}")
+    plt.title(f"Comparing features {f1} and {f2}")
 
     # Show the plot
     plt.show()
