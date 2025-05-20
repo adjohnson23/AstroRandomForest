@@ -85,14 +85,14 @@ def iterative_rf_build(training_df, rf_analysis_folder, rf_trees=[10000], rf_cri
 # rf_seeds: A list of seeds to simulate.
 # fs_num: An identifier for a feature set being passed in. By default, this is zero.
 # plot_fi: Whether to plot the feature importance plot for the forest.
-def simulate_rf_combinations(feature_list, training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0, plot_fi=False, keep_forests=False):
+def simulate_rf_combinations(feature_list, training_df, rf_analysis_folder, rf_trees=[10000], rf_criterions=["gini"], rf_seeds=[42], fs_num=0, plot_fi=False, keep_forests=False, keep_predictions=False):
     for seed in rf_seeds:
         for num_trees in rf_trees:
             for criterion in rf_criterions:
                 print(f"Growing random forest with {num_trees} trees and criterion {criterion} with seed {seed}")
                 rf_save_path = f"Random_Forest/rf_trees{num_trees}_{criterion}_seed{seed}_{fs_num}/"
                 drf_func.train_rf(training_df, feature_list, rf_save_path, num_trees=num_trees, criterion=criterion, seed=seed)
-                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, csv_mode=True, csv_file="Random_Forest/forest_analysis_data.csv", keepForest=keep_forests)
+                drf_func.rf_analysis(rf_save_path, rf_analysis_folder, feature_list, csv_mode=True, csv_file="Random_Forest/forest_analysis_data.csv", keep_forest=keep_forests, keep_predictions=keep_predictions)
                 if plot_fi:
                     drf_func.rf_feature_importance(rf_save_path, rf_analysis_folder, feature_list)
     print("DONE")
@@ -318,7 +318,8 @@ feature_list = ['Folded_AD',
                 'TCF_phase',
                 'TCFpeaks_sd',
                 'tic_Radius',
-                'trans.p_value']
+                'trans.p_value',
+                'Class']
 
 # Create simulation sets
 rf_trees = [10000]
@@ -334,5 +335,5 @@ training_path = "Random_Forest/RFtrainingUpdate.csv"
 analysis_folder = "Random_Forest/test_data/"
 training_df = pd.read_csv(training_path)
 
-simulate_rf_combinations(feature_list, training_df, analysis_folder)
+simulate_rf_combinations(feature_list, training_df, analysis_folder, keep_forests=True, keep_predictions=True)
 

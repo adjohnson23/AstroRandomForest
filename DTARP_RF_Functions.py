@@ -22,6 +22,7 @@ from sklearn import set_config
 # rf_save_path: The file path to save the random forest into.
 # num_trees: Number of trees to grow. The default is 100.
 # seed: What seed to generate a random forest from. The default is 42.
+# NOTE: Your feature list MUST include the 'Class' column as that is used for distinguishing entries and is used to check the forest's performance.
 def train_rf(training_df, feature_list, rf_save_path,
              num_trees=100, criterion="gini", seed=42):
     if training_df is None:
@@ -269,7 +270,7 @@ def write_to_df(csv_df: pd.DataFrame, rowNum: int, columnName: str, data):
     return
 
 # Perform random forest analysis. This function will write metrics into txt files (and a csv file if csv_mode is enabled).
-def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", keepForest: bool = False):
+def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, csv_mode: bool = False, csv_file: str = "", keep_forest: bool = False, keep_predictions: bool = False):
     if not ensure_forest_exists(rf_save_path, rf_analysis_folder):
         print(f"Some files are missing. Aborting...")
         return
@@ -327,7 +328,11 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
 
         # Make predictions
         y_pred_prob = rf.predict_proba(x_test)
-        testing_df[f"{forest_name}"] = y_pred_prob
+        testing_df[f"Predicted Class"] = y_pred_prob[:, 1]
+
+        # Save the dataframe if set to do so
+        if keep_predictions:
+            testing_df.to_csv(os.path.join(rf_save_path, f"Predicted{tf}"))
 
         removeForest = False
         # As the metrics are found, they should be written into a txt file or saved as a csv
@@ -382,7 +387,7 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         file_ind += 1
     
     # If the forest is not to be kept, remove it at the end
-    if not keepForest:
+    if not keep_forest:
         print("Forest not being stored to save space.")
         os.remove(os.path.join(rf_save_path, "random_forest.joblib"))
 
@@ -394,7 +399,8 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
     feature_df = pd.DataFrame({
         'Feature name': feature_list
     })
-    feature_df.to_csv(os.path.join(rf_save_path, f'feature_list{file_ind}.csv'), index=False)
+    if not os.path.exists(os.path.join(rf_save_path, f'feature_list.csv')):
+        feature_df.to_csv(os.path.join(rf_save_path, f'feature_list.csv'), index=False)
     
     # Generate a plt plot showing the ROC curve
     # TODO: This plot is squished, I haven't been able to figure out how to fix it! Come back to this in the future.
