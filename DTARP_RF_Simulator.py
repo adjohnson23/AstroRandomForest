@@ -332,5 +332,5 @@ training_path = "Random_Forest/RFtrainingUpdate.csv"
 analysis_folder = "Random_Forest/test_data/"
 training_df = pd.read_csv(training_path)
 
-simulate_rf_combinations(feature_list, training_df, analysis_folder, keep_forests=True, keep_predictions=True)
+simulate_rf_combinations(feature_list, training_df, analysis_folder, keep_forests=True, keep_predictions=True, plot_fi=True)
 

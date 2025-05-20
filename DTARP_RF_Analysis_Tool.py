@@ -42,6 +42,7 @@ def init_data_analyzer_tool():
         if ui == "h":
             print("--- HELP: List of commands and their syntax ---")
             print("h: Print out list of commands available ")
+            print("feature <syntax>: Analyze feature predictions. Do feature -h for help.")
         elif ui == "q":
             print("Quitting...")
             exit(1)
@@ -65,9 +66,11 @@ def init_data_analyzer_tool():
                     for f in x_df.columns:
                         analyze_feature(df, f)
                 elif command[1] == "-f":
-                    if command[2] in x_df.columns:
+                    if len(command) != 4:
+                        print(f"Invalid number of arguments provided. Please provide a feature to analyze and a threshold.")
+                    elif command[2] in x_df.columns:
                         print(f"Analyzing feature {command[2]}.")
-                        analyze_feature(df, command[2])
+                        compare_two_features(df, f1=command[2], threshold=float(command[3]))
                     else:
                         print(f"Feature {command[2]} not recognized in dataset. Please enter a valid feature or check available features with the command >feature")
                 elif command[1] == "-c":
@@ -79,7 +82,7 @@ def init_data_analyzer_tool():
                         print(f"Feature {command[3]} not recognized in dataset. Please enter a valid feature or check available features with the command >feature")
                     else:
                         print(f"Comparing {command[2]} to {command[3]}")
-                        compare_two_features(df, command[2], command[3], float(command[4]))
+                        compare_two_features(df, f1=command[2], f2=command[3], threshold=float(command[4]))
                 else:
                     print("Command not recognized. Type >feature -h for help.")
             else:
@@ -105,6 +108,7 @@ def analyze_feature(df: pd.DataFrame, f: str):
     # Plot classified planets in green and classified nonplanets in red
     plt.scatter(df_valid[f], df_valid['Predicted Class'], label="Exoplanets", s=10)
     plt.scatter(df_invalid[f], df_invalid['Predicted Class'], label="Non-exoplanets", s=10)
+    plt.legend()
     plt.xlabel(f"{f}")
     plt.ylabel("Predicted Class")
     plt.title(f"Analyzing feature {f}")
@@ -114,7 +118,7 @@ def analyze_feature(df: pd.DataFrame, f: str):
     return
 
 # Quite similar to the function above, but instead two different features are being compared to one another.
-def compare_two_features(df: pd.DataFrame, f1: str, f2: str, threshold: float):
+def compare_two_features(df: pd.DataFrame, f1: str, threshold: float, f2: str = 'Predicted Class'):
     # Divide datasets into TP, FP, TN, and FN cases
     df_valid = df[df['Class'] == 1]
     df_invalid = df[df['Class'] == 0]
