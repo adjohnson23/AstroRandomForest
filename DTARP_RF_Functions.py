@@ -375,14 +375,14 @@ def rf_analysis(rf_save_path: str, rf_analysis_folder: str, feature_list: list, 
         # First condition
         firstVals = roc_df[roc_df['TPR'] >= thresholdTPR]
         if csv_mode:
-            write_to_df(csv_df, row_num, f"DtTPRf {tf}", firstVals.values[0][0])
-            write_to_df(csv_df, row_num, f"DtFPRf {tf}", firstVals.values[0][1])
+            write_to_df(csv_df, row_num, f"DtTPRf ({tf})", firstVals.values[0][0])
+            write_to_df(csv_df, row_num, f"DtFPRf ({tf})", firstVals.values[0][1])
 
         # Second condition
         secondVals = roc_df[roc_df['FPR'] <= thresholdFPR]
         if csv_mode:
-            write_to_df(csv_df, row_num, f"DtTPRl {tf}", secondVals.values[len(secondVals.values) - 1][0])
-            write_to_df(csv_df, row_num, f"DtFPRl {tf}", secondVals.values[len(secondVals.values) - 1][1])
+            write_to_df(csv_df, row_num, f"DtTPRl ({tf})", secondVals.values[len(secondVals.values) - 1][0])
+            write_to_df(csv_df, row_num, f"DtFPRl ({tf})", secondVals.values[len(secondVals.values) - 1][1])
             
         file_ind += 1
     
